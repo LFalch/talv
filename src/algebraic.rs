@@ -252,7 +252,7 @@ impl MoveType {
         use self::Token::*;
         match ts.next()? {
             Capital(moving_piece) => Self::parse_regular(moving_piece, ts),
-            t @ Letter(_) | t @ Number(_) => {
+            t @ Letter(_) | t @ Number(_) | t @ Capture => {
                 ts.set_to_peek(t);
                 Self::parse_regular(Piece::Pawn, ts)
             }
