@@ -1,5 +1,5 @@
 pub mod board;
-// pub mod algebraic;
+pub mod algebraic;
 pub mod location;
 use std::collections::HashMap;
 
