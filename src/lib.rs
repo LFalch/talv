@@ -300,7 +300,6 @@ impl Game {
                             match self.board_state.board.get(coords) {
                                 Field::Occupied(c, p2) if c == to_play && p2 == p && self.attempt_move(coords, unto).is_some() =>
                                     if move_from.is_some() {
-                                        println!("{} <-> {}", move_from.unwrap(), coords);
                                         // Ambiguous
                                         return None;
                                     } else {
@@ -318,7 +317,6 @@ impl Game {
                             match self.board_state.board.get(coords) {
                                 Field::Occupied(c, p2) if c == to_play && p2 == p && self.attempt_move(coords, unto).is_some() =>
                                     if move_from.is_some() {
-                                        println!("{} <-> {}", move_from.unwrap(), coords);
                                         // Ambiguous
                                         return None;
                                     } else {
@@ -335,9 +333,8 @@ impl Game {
                             for l in LetterRange::full() {
                                 let coords = Coords::new(l, n);
                                 match self.board_state.board.get(coords) {
-                                    Field::Occupied(c, p2) if c == to_play && p2 == p && show(self.attempt_move(coords, unto)).is_some() =>
+                                    Field::Occupied(c, p2) if c == to_play && p2 == p && self.attempt_move(coords, unto).is_some() =>
                                         if move_from.is_some() {
-                                            println!("{} <-> {}", move_from.unwrap(), coords);
                                             // Ambiguous
                                             return None;
                                         } else {
@@ -354,11 +351,4 @@ impl Game {
             _ => return None,
         })
     }
-}
-
-fn show(t: Option<(Success, BoardState)>) -> Option<(Success, BoardState)> {
-    if let &Some((s, bs)) = &t {
-        println!("{:?}\n{}\n", s, bs.board);
-    }
-    t
 }
