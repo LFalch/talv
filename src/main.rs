@@ -1,6 +1,6 @@
 use std::io::{stdin, stdout, Write};
 
-use talv::{Game, location::{Coords}};
+use talv::{Game, algebraic::Move};
 
 fn main() {
     let mut game = Game::new();
@@ -24,26 +24,18 @@ fn main() {
             break;
         }
 
-        let from_to: String = input.chars().filter(|c| c.is_ascii_alphanumeric()).collect();
+        let mv = Move::from_str(input.trim());
 
-        if from_to.len() != 4 {
-            println!("Wrong length");
-            input.clear();
-            continue;
-        }
+        if let Some(mv) = mv {
+            println!("Valid {}", mv);
 
-        let from = Coords::from_str(&from_to[0..2]);
-        let unto = Coords::from_str(&from_to[2..4]);
-
-        match (from, unto) {
-            (Some(f), Some(u)) => {
-                if game.make_move(f, u) {
-                    
-                } else {
-                    println!("Illegal!");
+            if let Some((f, t)) = game.check_move(mv) {
+                if !game.make_move(f, t) {
+                    println!("Illegal!!");
                 }
+            } else {
+                println!("Incorrect");
             }
-            _ => println!("Malformed!"),
         }
 
         input.clear();

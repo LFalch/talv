@@ -4,7 +4,16 @@ use std::fmt::{self, Display};
 pub struct Letter(u8);
 
 impl Letter {
-    pub fn new(i: u8) -> Option<Self> {
+    pub const A: Self = Letter(0);
+    pub const B: Self = Letter(1);
+    pub const C: Self = Letter(2);
+    pub const D: Self = Letter(3);
+    pub const E: Self = Letter(4);
+    pub const F: Self = Letter(5);
+    pub const G: Self = Letter(6);
+    pub const H: Self = Letter(7);
+
+    pub const fn new(i: u8) -> Option<Self> {
         if i < 8 {
             Some(Letter(i))
         } else { None }
@@ -44,7 +53,16 @@ impl Display for Letter {
 pub struct Number(u8);
 
 impl Number {
-    pub fn new(i: u8) -> Option<Self> {
+    pub const N1: Self = Number(0 << 4);
+    pub const N2: Self = Number(1 << 4);
+    pub const N3: Self = Number(2 << 4);
+    pub const N4: Self = Number(3 << 4);
+    pub const N5: Self = Number(4 << 4);
+    pub const N6: Self = Number(5 << 4);
+    pub const N7: Self = Number(6 << 4);
+    pub const N8: Self = Number(7 << 4);
+
+    pub const fn new(i: u8) -> Option<Self> {
         if i < 8 {
             Some(Number(i << 4))
         } else { None }
@@ -137,3 +155,51 @@ pub const LEAPS: [(i8, i8); 8] = [
     (-2, 1), (-2, -1),
     (-1, 2), (-1, -2),
 ];
+
+pub struct NumberRange {
+    start: Number,
+    end: Number,
+}
+
+impl NumberRange {
+    pub const fn full() -> Self {
+        NumberRange { start: Number(0), end: Number(8 << 4) }
+    }
+}
+
+impl Iterator for NumberRange {
+    type Item = Number;
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.start < self.end {
+            let ret = self.start;
+            self.start.0 += 0b1_0000;
+            Some(ret)
+        } else {
+            None
+        }
+    }
+}
+
+pub struct LetterRange {
+    start: Letter,
+    end: Letter,
+}
+
+impl LetterRange {
+    pub const fn full() -> Self {
+        LetterRange { start: Letter(0), end: Letter(8) }
+    }
+}
+
+impl Iterator for LetterRange {
+    type Item = Letter;
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.start < self.end {
+            let ret = self.start;
+            self.start.0 += 1;
+            Some(ret)
+        } else {
+            None
+        }
+    }
+}

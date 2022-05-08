@@ -35,9 +35,6 @@ impl<'a> TokenStream<'a> {
     fn new(s: &'a str) -> Self {
         TokenStream { chars: s.chars(), peeked: None }
     }
-    fn rest(&self) -> &'a str {
-        self.chars.as_str()
-    }
     fn peek(&mut self) -> Option<Token> {
         self.peeked = self.next();
         self.peeked
@@ -96,10 +93,10 @@ pub struct Move {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Mover {
     Piece(Piece),
-    PieceAt(Piece, Lt, Nt),
+    PieceAt(Piece, Coords),
     PieceAtLetter(Piece, Lt),
     PieceAtNumber(Piece, Nt),
-    Coords(Coords),
+    // Coords(Coords),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -131,8 +128,7 @@ impl Display for Move {
                     Mover::Piece(p) => write!(f, "{}", p)?,
                     Mover::PieceAtNumber(p, n) => write!(f, "{}{}", p, n)?,
                     Mover::PieceAtLetter(p, l) => write!(f, "{}{}", p, l)?,
-                    Mover::PieceAt(p, l, n) => write!(f, "{}{}{}", p, l, n)?,
-                    Mover::Coords(coords) => write!(f, "{}", coords)?,
+                    Mover::PieceAt(p, cs) => write!(f, "{}{}", p, cs)?,
                 }
                 if captures { write!(f, "x")?; }
                 write!(f, "{}", destination)?;
@@ -181,7 +177,7 @@ impl MoveType {
                     ts.peeked = None;
                     match ts.next() {
                         Some(Number(n2)) => Some(MoveType::Regular {
-                            mover: Mover::PieceAt(piece, l, n),
+                            mover: Mover::PieceAt(piece, Coords::new(l, n)),
                             captures: false,
                             destination: Coords::new(l2, n2),
                             promotes: Self::parse_promotion(ts),
@@ -193,7 +189,7 @@ impl MoveType {
                 Some(Capture) => {
                     ts.peeked = None;
                     Some(MoveType::Regular {
-                        mover: Mover::PieceAt(piece, l, n),
+                        mover: Mover::PieceAt(piece, Coords::new(l, n)),
                         captures: true,
                         destination: Self::parse_destination(ts)?,
                         promotes: Self::parse_promotion(ts),

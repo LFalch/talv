@@ -3,8 +3,9 @@ pub mod algebraic;
 pub mod location;
 use std::collections::HashMap;
 
+use algebraic::{Move, MoveType, Mover};
 use board::*;
-use location::{Coords, Number, Letter};
+use location::{Coords, Number, Letter, LetterRange, NumberRange};
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 struct CastlesAllowed {
@@ -47,10 +48,10 @@ impl BoardState {
     pub fn in_check(&self, side: Colour) -> bool {
         let king = self.find_king(side);
 
-        for i in 0..8 {
-            for j in 0..8 {
-                let cs = Coords::from_u8_tuple(i, j).unwrap();
-
+        for n in NumberRange::full() {
+            for l in LetterRange::full() {
+                let cs = Coords::new(l, n);
+                
                 if self.is_possible(cs, king, !side) {
                     return true;
                 }
@@ -59,9 +60,9 @@ impl BoardState {
         false
     }
     fn find_king(&self, c: Colour) -> Coords {
-        for i in 0..8 {
-            for j in 0..8 {
-                let cs = Coords::from_u8_tuple(i, j).unwrap();
+        for n in NumberRange::full() {
+            for l in LetterRange::full() {
+                let cs = Coords::new(l, n);
 
                 match self.board.get(cs) {
                     Field::Occupied(pc, Piece::King) if pc == c => return cs,
@@ -75,6 +76,7 @@ impl BoardState {
         if !self.is_possible(from, unto, self.side_to_move) {
             Err(())
         } else {
+            // TODO: move the rook when castling
             let mover = self.board.set(from, Field::Empty);
             let taken = self.board.set(unto, mover);
 
@@ -101,8 +103,8 @@ impl BoardState {
     }
     fn update_allowed_castles(&mut self, mover: Field, pos: Coords) {
         let (ac, brn) = match self.side_to_move {
-            Colour::Black => (&mut self.black_castling, Number::new(7).unwrap()),
-            Colour::White => (&mut self.white_castling, Number::new(0).unwrap()),
+            Colour::Black => (&mut self.black_castling, Number::N8),
+            Colour::White => (&mut self.white_castling, Number::N1),
         };
 
         match mover {
@@ -111,9 +113,9 @@ impl BoardState {
                 ac.long = false;
             }
             Field::Occupied(_, Piece::Rook) if pos.n() == brn => {
-                if pos.l() == Letter::new(7).unwrap() {
+                if pos.l() == Letter::H {
                     ac.short = false;
-                } else if pos.l() == Letter::new(0).unwrap() {
+                } else if pos.l() == Letter::A {
                     ac.long = false;
                 }
             }
@@ -144,9 +146,14 @@ impl BoardState {
                 };
                 let d_num = sign * (unto.n().i8() - from.n().i8());
 
+                // same file <=> !taking
+                if (from.l() != unto.l()) != taking {
+                    return false;
+                }
+
                 if taking {
                     // TODO: en passant
-                    from.l() != unto.l() && d_num == 1 && (unto.l().i8() - from.l().i8()).abs() == 1
+                     d_num == 1 && (unto.l().i8() - from.l().i8()).abs() == 1
                 } else {
                     if d_num == 1 {
                         true
@@ -264,4 +271,94 @@ impl Game {
     pub fn is_checked(&self, side: Colour) -> bool {
         self.board_state.in_check(side)
     }
+    // Ignores check and checkmates
+    pub fn check_move(&self, alg_move: Move) -> Option<(Coords, Coords)> {
+        let to_play = self.board_state.side_to_move;
+
+        let (ca, n) = match self.board_state.side_to_move {
+            Colour::Black => (self.board_state.black_castling, Number::N8),
+            Colour::White => (self.board_state.white_castling, Number::N1),
+        };
+
+        Some(match alg_move.move_type {
+            MoveType::ShortCastle if ca.short => (Coords::new(Letter::E, n), Coords::new(Letter::C, n)),
+            MoveType::LongCastle if ca.long => (Coords::new(Letter::E, n), Coords::new(Letter::G, n)),
+            MoveType::Regular { captures, destination, .. } if captures != self.board_state.board.get(destination).is_occupied() => return None,
+            MoveType::Regular { mover, destination: unto, .. } => {
+                (match mover {
+                    Mover::PieceAt(p, from) => {
+                        match self.board_state.board.get(from) {
+                            // Pawn is implied, but if we have `pos -> pos`, then it's a wildcard
+                            Field::Occupied(c, p2) if c == to_play && p == Piece::Pawn || p == p2 => from,
+                            _ => return None,
+                        }
+                    }
+                    Mover::PieceAtLetter(p, l) => {
+                        let mut move_from = None;
+                        for n in NumberRange::full() {
+                            let coords = Coords::new(l, n);
+                            match self.board_state.board.get(coords) {
+                                Field::Occupied(c, p2) if c == to_play && p2 == p && self.attempt_move(coords, unto).is_some() =>
+                                    if move_from.is_some() {
+                                        println!("{} <-> {}", move_from.unwrap(), coords);
+                                        // Ambiguous
+                                        return None;
+                                    } else {
+                                        move_from = Some(coords);
+                                    }
+                                _ => (),
+                            }
+                        }
+                        move_from?
+                    }
+                    Mover::PieceAtNumber(p, n) => {
+                        let mut move_from = None;
+                        for l in LetterRange::full() {
+                            let coords = Coords::new(l, n);
+                            match self.board_state.board.get(coords) {
+                                Field::Occupied(c, p2) if c == to_play && p2 == p && self.attempt_move(coords, unto).is_some() =>
+                                    if move_from.is_some() {
+                                        println!("{} <-> {}", move_from.unwrap(), coords);
+                                        // Ambiguous
+                                        return None;
+                                    } else {
+                                        move_from = Some(coords);
+                                    }
+                                _ => (),
+                            }
+                        }
+                        move_from?
+                    }
+                    Mover::Piece(p) => {
+                        let mut move_from = None;
+                        for n in NumberRange::full() {
+                            for l in LetterRange::full() {
+                                let coords = Coords::new(l, n);
+                                match self.board_state.board.get(coords) {
+                                    Field::Occupied(c, p2) if c == to_play && p2 == p && show(self.attempt_move(coords, unto)).is_some() =>
+                                        if move_from.is_some() {
+                                            println!("{} <-> {}", move_from.unwrap(), coords);
+                                            // Ambiguous
+                                            return None;
+                                        } else {
+                                            move_from = Some(coords);
+                                        }
+                                    _ => (),
+                                }
+                            }
+                        }
+                        move_from?
+                    }
+                }, unto)
+            }
+            _ => return None,
+        })
+    }
+}
+
+fn show(t: Option<(Success, BoardState)>) -> Option<(Success, BoardState)> {
+    if let &Some((s, bs)) = &t {
+        println!("{:?}\n{}\n", s, bs.board);
+    }
+    t
 }

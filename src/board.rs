@@ -116,12 +116,12 @@ impl Board {
 
 pub const START: Board = Board([
     [WR, WN, WB, WQ, WK, WB, WN, WR],
-    [WP, WP, WP, WP, NO, WP, WP, WP],
+    [WP, WP, WP, WP, WP, WP, WP, WP],
     [NO, NO, NO, NO, NO, NO, NO, NO],
     [NO, NO, NO, NO, NO, NO, NO, NO],
     [NO, NO, NO, NO, NO, NO, NO, NO],
     [NO, NO, NO, NO, NO, NO, NO, NO],
-    [BP, BP, BP, BP, NO, BP, BP, BP],
+    [BP, BP, BP, BP, BP, BP, BP, BP],
     [BR, BN, BB, BQ, BK, BB, BN, BR],
 ]);
 
