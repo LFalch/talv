@@ -116,7 +116,7 @@ impl Board {
 
 pub const START: Board = Board([
     [WR, WN, WB, WQ, WK, WB, WN, WR],
-    [WP, WP, WP, WP, WP, WP, WP, WP],
+    [WP, WP, WP, WP, WP, WP, BP, WP],
     [NO, NO, NO, NO, NO, NO, NO, NO],
     [NO, NO, NO, NO, NO, NO, NO, NO],
     [NO, NO, NO, NO, NO, NO, NO, NO],
@@ -128,14 +128,14 @@ pub const START: Board = Board([
 impl Display for Board {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let Board(board) = self;
-        writeln!(f, "  abcdefgh")?;
+        writeln!(f, " abcdefgh")?;
         for (i, row) in (0..8).map(|i| 8 - i).zip(board.iter().rev()) {
-            write!(f, "{} ", i)?;
+            write!(f, "{}", i)?;
             for occupier in row {
                 write!(f, "{}", occupier)?;
             }
             writeln!(f, " {}", i)?;
         }
-        writeln!(f, "  abcdefgh")
+        writeln!(f, " abcdefgh")
     }
 }

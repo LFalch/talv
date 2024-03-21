@@ -1,10 +1,10 @@
-use std::{fmt::{self, Display}};
+use std::fmt::{self, Display};
 use std::str::Chars;
-use std::iter::{Iterator};
+use std::iter::Iterator;
 
 use crate::location::{Coords, Number as Nt, Letter as Lt};
 
-use super::{Piece};
+use super::Piece;
 
 #[derive(Debug, Copy, Clone)]
 enum Token {
@@ -97,6 +97,18 @@ pub enum Mover {
     PieceAtLetter(Piece, Lt),
     PieceAtNumber(Piece, Nt),
     // Coords(Coords),
+}
+
+impl Mover {
+    pub const fn is_pawn(&self) -> bool {
+        match self {
+            Mover::Piece(Piece::Pawn) |
+            Mover::PieceAt(Piece::Pawn, _) |
+            Mover::PieceAtLetter(Piece::Pawn, _) |
+            Mover::PieceAtNumber(Piece::Pawn, _) => true,
+            _ => false,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -289,5 +301,11 @@ impl Move {
             }
             _ => Move { move_type, king_threat: KingThreat::None },
         })
+    }
+    pub fn promotion(&self) -> Option<Piece> {
+        match self.move_type {
+            MoveType::Regular { promotes, .. } => promotes,
+            _ => None,
+        }
     }
 }

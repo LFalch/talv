@@ -53,6 +53,7 @@ impl BoardState {
                 let cs = Coords::new(l, n);
                 
                 if self.is_possible(cs, king, !side) {
+                    eprintln!("check from {cs} to {king}");
                     return true;
                 }
             }
@@ -72,8 +73,40 @@ impl BoardState {
         }
         unreachable!();
     }
+    pub fn pawn_promototion_pending(&self) -> Option<Coords> {
+        for l in LetterRange::full() {
+            let cs = Coords::new(l, Number::N1);
+            if let Field::Occupied(Colour::Black, Piece::Pawn) = self.board.get(cs) {
+                return Some(cs)
+            }
+            let cs = Coords::new(l, Number::N8);
+            if let Field::Occupied(Colour::White, Piece::Pawn) = self.board.get(cs) {
+                return Some(cs)
+            }
+        }
+        None
+    }
+    pub fn promote(&mut self, into: Piece) -> bool {
+        if let Some(pcs) = self.pawn_promototion_pending() {
+            match into {
+                Piece::Pawn | Piece::King => false,
+                p => {
+                    let c = match pcs.n() {
+                        Number::N1 => Colour::Black,
+                        Number::N8 => Colour::White,
+                        _ => unreachable!(),
+                    };
+                    self.board.set(pcs, Field::Occupied(c, p));
+                    true
+                }
+            }
+        } else {
+            println!("No pending promotion");
+            false
+        }
+    }
     pub fn make_move(&mut self, from: Coords, unto: Coords) -> Result<Success, ()> {
-        if !self.is_possible(from, unto, self.side_to_move) {
+        if self.pawn_promototion_pending().is_some() || !self.is_possible(from, unto, self.side_to_move) {
             Err(())
         } else {
             // TODO: move the rook when castling
@@ -196,13 +229,15 @@ impl BoardState {
     fn check_along<F: FnOnce(i8, i8) -> bool>(&self, from: Coords, unto: Coords, f: F) -> bool {
         let (dl, dn) = unto.sub(from);
         let (al, an) = (dl.abs(), dn.abs());
+        let distance = al.max(an);
+
         if f(al, an) {
             let dl = dl.signum();
             let dn = dn.signum();
 
             let (l, n) = from.i8_tuple();
 
-            for i in 1..an {
+            for i in 1..distance {
                 let coords = Coords::from_u8_tuple(l+i*dl, n+i*dn);
 
                 let is_free = coords
@@ -271,6 +306,12 @@ impl Game {
     pub fn is_checked(&self, side: Colour) -> bool {
         self.board_state.in_check(side)
     }
+    pub fn pawn_promototion_pending(&self) -> bool {
+        self.board_state.pawn_promototion_pending().is_some()
+    }
+    pub fn promote(&mut self, into: Piece) -> bool {
+        self.board_state.promote(into)
+    }
     // Ignores check and checkmates
     pub fn check_move(&self, alg_move: Move) -> Option<(Coords, Coords)> {
         let to_play = self.board_state.side_to_move;
@@ -285,6 +326,11 @@ impl Game {
             MoveType::LongCastle if ca.long => (Coords::new(Letter::E, n), Coords::new(Letter::G, n)),
             MoveType::Regular { captures, destination, .. } if captures != self.board_state.board.get(destination).is_occupied() => return None,
             MoveType::Regular { mover, destination: unto, .. } => {
+                // If a move is a pawn going to a back rank, it should be a promotion move
+                if mover.is_pawn() && (unto.n() == Number::N8 || unto.n() == Number::N1) && alg_move.promotion().is_none() {
+                    return None;
+                }
+
                 (match mover {
                     Mover::PieceAt(p, from) => {
                         match self.board_state.board.get(from) {

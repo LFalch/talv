@@ -1,6 +1,6 @@
 use std::io::{stdin, stdout, Write};
 
-use talv::{Game, algebraic::Move};
+use talv::{algebraic::{Move, MoveType}, Game};
 
 fn main() {
     let mut game = Game::new();
@@ -30,11 +30,17 @@ fn main() {
             println!("Valid {}", mv);
 
             if let Some((f, t)) = game.check_move(mv) {
-                if !game.make_move(f, t) {
+                if game.make_move(f, t) {
+                    if let Some(promotion) = mv.promotion() {
+                        if !game.promote(promotion) {
+                            println!("Illegal promotion to {}, ignored", promotion);
+                        }
+                    }
+                } else {
                     println!("Illegal!!");
                 }
             } else {
-                println!("Incorrect");
+                println!("Incorrect {}", mv);
             }
         }
 
