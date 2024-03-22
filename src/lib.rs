@@ -19,7 +19,6 @@ pub struct BoardState {
     pub side_to_move: Colour,
     black_castling: CastlesAllowed,
     white_castling: CastlesAllowed,
-    // TODO: use this!!
     en_passant_target: Option<Coords>,
 }
 
@@ -213,7 +212,23 @@ impl BoardState {
         } else {
             // TODO: move the rook when castling
             let mover = self.board.set(from, Field::Empty);
-            let taken = self.board.set(unto, mover);
+            let taken = match self.en_passant_target {
+                Some(en_passant_target) if unto == en_passant_target => {
+                    let targeted_pawn_pos = match en_passant_target.n() {
+                        // FIXME: probably do this better
+                        Number::N3 => en_passant_target.add(0, 1).unwrap(),
+                        Number::N6 => en_passant_target.add(0, -1).unwrap(),
+                        _ => unreachable!(),
+                    };
+
+                    // this should be empty because otherwise the board was in an illegal state
+                    let _ = self.board.set(unto, mover);
+                    // Kill the pawn
+                    self.board.set(targeted_pawn_pos, Field::Empty)
+                }
+                // if this is not en passant capture, this is straight forward
+                _ => self.board.set(unto, mover),
+            };
 
             self.update_allowed_castles(mover, from);
 
@@ -223,6 +238,15 @@ impl BoardState {
 
             let pawn_move = matches!(mover, Field::Occupied(_, Piece::Pawn));
             let check = self.in_check(self.side_to_move);
+
+            let dist_n = unto.sub(from).1;
+            if pawn_move && dist_n.abs() == 2 {
+                // En passant
+                let target_pos = unto.add(0, -dist_n / 2).unwrap();
+                self.en_passant_target = Some(target_pos);
+            } else {
+                self.en_passant_target = None;
+            }
 
             if taken.is_occupied() {
                 Ok(Success::Capture)
@@ -281,14 +305,16 @@ impl BoardState {
                 };
                 let d_num = sign * (unto.n().i8() - from.n().i8());
 
+                // Handle en passant
+                let taking = taking || self.en_passant_target == Some(unto);
+
                 // same file <=> !taking
                 if (from.l() != unto.l()) != taking {
                     return false;
                 }
 
                 if taking {
-                    // TODO: en passant
-                     d_num == 1 && (unto.l().i8() - from.l().i8()).abs() == 1
+                    d_num == 1 && (unto.l().i8() - from.l().i8()).abs() == 1
                 } else {
                     if d_num == 1 {
                         true
@@ -461,13 +487,17 @@ impl Game {
             Colour::White => (self.board_state.white_castling, Number::N1),
         };
 
+        let capturing = |destination| {
+            self.board_state.board.get(destination).is_occupied() || self.board_state.en_passant_target == Some(destination)
+        };
+
         Some(match alg_move.move_type {
             MoveType::ShortCastle if ca.short => (Coords::new(Letter::E, n), Coords::new(Letter::C, n)),
             MoveType::LongCastle if ca.long => (Coords::new(Letter::E, n), Coords::new(Letter::G, n)),
-            MoveType::Regular { captures, destination, .. } if captures != self.board_state.board.get(destination).is_occupied() => return None,
-            MoveType::Regular { mover, destination: unto, .. } => {
+            MoveType::Regular { captures, destination, .. } if captures != capturing(destination) => return None,
+            MoveType::Regular { mover, destination: unto, promotes, .. } => {
                 // If a move is a pawn going to a back rank, it should be a promotion move
-                if mover.is_pawn() && (unto.n() == Number::N8 || unto.n() == Number::N1) && alg_move.promotion().is_none() {
+                if mover.is_pawn() && (unto.n() == Number::N8 || unto.n() == Number::N1) && promotes.is_none() {
                     return None;
                 }
 
