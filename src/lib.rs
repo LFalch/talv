@@ -210,7 +210,6 @@ impl BoardState {
         if self.pawn_promototion_pending().is_some() || !self.is_possible(from, unto, self.side_to_move) {
             Err(())
         } else {
-            // TODO: move the rook when castling
             let mover = self.board.set(from, Field::Empty);
             let taken = match self.en_passant_target {
                 Some(en_passant_target) if unto == en_passant_target => {
@@ -237,16 +236,32 @@ impl BoardState {
             self.update_allowed_castles(taken, unto);
 
             let pawn_move = matches!(mover, Field::Occupied(_, Piece::Pawn));
-            let check = self.in_check(self.side_to_move);
 
-            let dist_n = unto.sub(from).1;
-            if pawn_move && dist_n.abs() == 2 {
+            let dist = unto.sub(from);
+            if pawn_move && dist.1.abs() == 2 {
                 // En passant
-                let target_pos = unto.add(0, -dist_n / 2).unwrap();
+                let target_pos = unto.add(0, -dist.1 / 2).unwrap();
                 self.en_passant_target = Some(target_pos);
             } else {
                 self.en_passant_target = None;
+                // Castling
+                if matches!(mover, Field::Occupied(_, Piece::King)) && dist.0.abs() == 2 {
+                    // FIXME: not pretty
+                    match dist.0.signum() {
+                        1 => {
+                            let rook = self.board.set(Coords::new(Letter::H, unto.n()), Field::Empty);
+                            self.board.set(unto.add(-1, 0).unwrap(), rook);
+                        }
+                        -1 => {
+                            let rook = self.board.set(Coords::new(Letter::A, unto.n()), Field::Empty);
+                            self.board.set(unto.add(1, 0).unwrap(), rook);
+                        }
+                        _ => unreachable!(),
+                    }
+                }
             }
+
+            let check = self.in_check(self.side_to_move);
 
             if taken.is_occupied() {
                 Ok(Success::Capture)
@@ -558,7 +573,7 @@ impl Game {
     pub fn check_move(&self, alg_move: Move) -> Option<(Coords, Coords)> {
         let to_play = self.board_state.side_to_move;
 
-        let (ca, n) = match self.board_state.side_to_move {
+        let (ca, brn) = match self.board_state.side_to_move {
             Colour::Black => (self.board_state.black_castling, Number::N8),
             Colour::White => (self.board_state.white_castling, Number::N1),
         };
@@ -568,8 +583,8 @@ impl Game {
         };
 
         Some(match alg_move.move_type {
-            MoveType::ShortCastle if ca.short => (Coords::new(Letter::E, n), Coords::new(Letter::C, n)),
-            MoveType::LongCastle if ca.long => (Coords::new(Letter::E, n), Coords::new(Letter::G, n)),
+            MoveType::ShortCastle if ca.short => (Coords::new(Letter::E, brn), Coords::new(Letter::G, brn)),
+            MoveType::LongCastle if ca.long => (Coords::new(Letter::E, brn), Coords::new(Letter::C, brn)),
             MoveType::Regular { captures, destination, .. } if captures != capturing(destination) => return None,
             MoveType::Regular { mover, destination: unto, promotes, .. } => {
                 // If a move is a pawn going to a back rank, it should be a promotion move
