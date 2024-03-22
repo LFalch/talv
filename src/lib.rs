@@ -1,7 +1,7 @@
 pub mod board;
 pub mod algebraic;
 pub mod location;
-use std::collections::HashMap;
+use std::{collections::HashMap, num::NonZeroU64};
 
 use algebraic::{Move, MoveType, Mover};
 use board::*;
@@ -19,6 +19,8 @@ pub struct BoardState {
     pub side_to_move: Colour,
     black_castling: CastlesAllowed,
     white_castling: CastlesAllowed,
+    // TODO: use this!!
+    en_passant_target: Option<Coords>,
 }
 
 impl Default for BoardState {
@@ -37,13 +39,113 @@ pub enum Success {
 }
 
 impl BoardState {
-    pub fn new() -> Self {
+    pub const fn new() -> Self {
         BoardState {
             board: START,
             side_to_move: Colour::White,
             black_castling: CastlesAllowed {short: true, long: true},
             white_castling: CastlesAllowed {short: true, long: true},
+            en_passant_target: None,
         }
+    }
+    /// Reads a board state from the first four fields of a FEN string
+    pub fn from_fen(s: &str) -> Option<Self> {
+        let mut fields = s.split_whitespace();
+
+        let mut board = Board::EMPTY;
+
+        let pieces = fields.next()?;
+
+        let mut ns = NumberRange::full().rev();
+        let mut n = ns.next().unwrap();
+        let mut ls = LetterRange::full();
+        for c in pieces.chars() {
+            match c {
+                '/' => {
+                    if ls.next().is_some() {
+                        // assert this is the last letter
+                        return None;
+                    }
+                    n = ns.next()?;
+                    ls = LetterRange::full();
+                }
+                c @ '1' ..= '8' => {
+                    for _ in '0'..c {
+                        ls.next()?;
+                    }
+                }
+                'p' => {
+                    board.set(Coords::new(ls.next()?, n), Field::Occupied(Colour::Black, Piece::Pawn));
+                },
+                'r' => {
+                    board.set(Coords::new(ls.next()?, n), Field::Occupied(Colour::Black, Piece::Rook));
+                },
+                'n' => {
+                    board.set(Coords::new(ls.next()?, n), Field::Occupied(Colour::Black, Piece::Knight));
+                },
+                'b' => {
+                    board.set(Coords::new(ls.next()?, n), Field::Occupied(Colour::Black, Piece::Bishop));
+                },
+                'q' => {
+                    board.set(Coords::new(ls.next()?, n), Field::Occupied(Colour::Black, Piece::Queen));
+                },
+                'k' => {
+                    board.set(Coords::new(ls.next()?, n), Field::Occupied(Colour::Black, Piece::King));
+                },
+                'P' => {
+                    board.set(Coords::new(ls.next()?, n), Field::Occupied(Colour::White, Piece::Pawn));
+                },
+                'R' => {
+                    board.set(Coords::new(ls.next()?, n), Field::Occupied(Colour::White, Piece::Rook));
+                },
+                'N' => {
+                    board.set(Coords::new(ls.next()?, n), Field::Occupied(Colour::White, Piece::Knight));
+                },
+                'B' => {
+                    board.set(Coords::new(ls.next()?, n), Field::Occupied(Colour::White, Piece::Bishop));
+                },
+                'Q' => {
+                    board.set(Coords::new(ls.next()?, n), Field::Occupied(Colour::White, Piece::Queen));
+                },
+                'K' => {
+                    board.set(Coords::new(ls.next()?, n), Field::Occupied(Colour::White, Piece::King));
+                },
+                _ => return None,
+            }
+        }
+
+        let side_to_move = match fields.next()? {
+            "w" => Colour::White,
+            "b" => Colour::Black,
+            _ => return None,
+        };
+
+        let mut black_castling = CastlesAllowed{short: false, long: false};
+        let mut white_castling = CastlesAllowed{short: false, long: false};
+
+        for c in fields.next()?.chars() {
+            match c {
+                '-' => break,
+                'K' => white_castling.short = true,
+                'Q' => white_castling.long = true,
+                'k' => black_castling.short = true,
+                'q' => black_castling.long = true,
+                _ => return None,
+            }
+        }
+
+        let en_passant_target =  match fields.next()? {
+            "-" => None,
+            s => Some(Coords::from_str(s)?),
+        };
+
+        Some(BoardState {
+            board,
+            side_to_move,
+            black_castling,
+            white_castling,
+            en_passant_target,
+        })
     }
     pub fn in_check(&self, side: Colour) -> bool {
         let king = self.find_king(side);
@@ -254,16 +356,46 @@ impl BoardState {
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_start_position_fen() {
+        let start_from_fen = BoardState::from_fen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1").unwrap();
+    
+        assert_eq!(start_from_fen, BoardState::new());
+    }
+}
+
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Game {
     board_state: BoardState,
     last_move_states: HashMap<BoardState, u8>,
+    fullmove_count: NonZeroU64,
 }
 
 impl Game {
     pub fn new() -> Self {
-        Game { board_state: BoardState::new(), last_move_states: HashMap::new() }
+        Game {
+            board_state: BoardState::new(),
+            last_move_states: HashMap::new(),
+            fullmove_count: NonZeroU64::new(1).unwrap()
+        }
+    }
+    pub fn from_fen(fen: &str) -> Option<Self> {
+        let move_count_index = fen.rfind(char::is_whitespace)?;
+        let fullmove_count = dbg!(fen[move_count_index..].trim_start()).parse().ok()?;
+        let half_move_clock_index = fen[..move_count_index].rfind(char::is_whitespace)?;
+
+        let mut last_move_states = HashMap::new();
+        // Set an impossible board state that will contribute to the fifty-move rule
+        last_move_states.insert(BoardState{board: Board::EMPTY, .. BoardState::new()}, fen[half_move_clock_index..move_count_index].trim_start().parse().ok()?);
+
+        let board_state = BoardState::from_fen(&fen[..half_move_clock_index])?;
+
+        Some(Game { board_state, last_move_states, fullmove_count })
     }
     pub fn draw_claimable(&self) -> bool {
         self.last_move_states[&self.board_state] == 3
@@ -277,6 +409,7 @@ impl Game {
         if board_state.in_check(self.board_state.side_to_move) {
             None
         } else {
+            
             Some((success, board_state))
         }
     }
@@ -291,13 +424,20 @@ impl Game {
                     Success::Check | Success::PieceMovement => (),
                 }
                 *self.last_move_states.entry(self.board_state).or_insert(0) += 1;
+                if matches!(self.side_to_move(), Colour::White) {
+                    self.fullmove_count = self.fullmove_count.checked_add(1).unwrap();
+                }
 
                 true
             }
             None => false,
         }
     }
-    pub fn print_board(&self) {
+    pub fn print_game(&self) {
+        println!("Move {}, {} to move", self.fullmove_count, match self.side_to_move() {
+            Colour::White => "white",
+            Colour::Black => "black",
+        });
         println!("{}", self.board_state.board);
     }
     pub fn side_to_move(&self) -> Colour {

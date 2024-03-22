@@ -1,14 +1,30 @@
 use std::io::{stdin, stdout, Write};
 
-use talv::{algebraic::{Move, MoveType}, Game};
+use talv::{algebraic::Move, Game};
 
 fn main() {
-    let mut game = Game::new();
+    let mut game;
 
     let mut input = String::new();
 
+    println!("Input position (FEN) or press enter for new game:");
+    stdin().read_line(&mut input).unwrap();
+    if input.trim().is_empty() {
+        game = Game::new();
+    } else {
+
+        game = match Game::from_fen(input.trim()) {
+            Some(game) => game,
+            None => {
+                eprintln!("Invalid FEN string");
+                return;
+            }
+        }
+    }
+    input.clear();
+
     loop {
-        game.print_board();
+        game.print_game();
         if game.is_checked(game.side_to_move()) {
             println!("Check! ");
         }

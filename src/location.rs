@@ -95,7 +95,7 @@ impl Display for Number {
     }
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub struct Coords(u8);
 
 impl Coords {
@@ -174,6 +174,16 @@ impl Iterator for NumberRange {
             let ret = self.start;
             self.start.0 += 0b1_0000;
             Some(ret)
+        } else {
+            None
+        }
+    }
+}
+impl DoubleEndedIterator for NumberRange {
+    fn next_back(&mut self) -> Option<Self::Item> {
+        if self.start < self.end {
+            self.end.0 -= 0b1_0000;
+            Some(self.end)
         } else {
             None
         }

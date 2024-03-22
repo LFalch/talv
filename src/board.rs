@@ -102,6 +102,7 @@ pub const WK: Field = Field::Occupied(Colour::White, Piece::King);
 pub struct Board([[Field; 8]; 8]);
 
 impl Board {
+    pub const EMPTY: Self = Self([[Field::Empty; 8]; 8]);
     pub fn get(&self, coords: Coords) -> Field {
         let (n, l) = coords.indices();
         self.0[n][l]
@@ -116,7 +117,7 @@ impl Board {
 
 pub const START: Board = Board([
     [WR, WN, WB, WQ, WK, WB, WN, WR],
-    [WP, WP, WP, WP, WP, WP, BP, WP],
+    [WP, WP, WP, WP, WP, WP, WP, WP],
     [NO, NO, NO, NO, NO, NO, NO, NO],
     [NO, NO, NO, NO, NO, NO, NO, NO],
     [NO, NO, NO, NO, NO, NO, NO, NO],
