@@ -1,7 +1,7 @@
 pub mod board;
 pub mod algebraic;
 pub mod location;
-use std::{collections::HashMap, num::NonZeroU64};
+use std::{collections::HashMap, fmt::{self, Display}, num::NonZeroU64};
 
 use algebraic::{Move, MoveType, Mover};
 use board::*;
@@ -380,6 +380,82 @@ impl BoardState {
             false
         }
     }
+    pub const fn display_fen(&self) -> BoardStateFen {
+        BoardStateFen {
+            inner: self,
+        }
+    }
+}
+
+pub struct BoardStateFen<'a> {
+    inner: &'a BoardState,
+}
+
+impl Display for BoardStateFen<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        for n in NumberRange::full().rev() {
+            let mut empty_fields = 0;
+            for l in LetterRange::full() {
+                let field = self.inner.board.get(Coords::new(l, n));
+                let Field::Occupied(c, p) = field else {
+                    empty_fields += 1;
+                    continue;
+                };
+                if empty_fields > 0 {
+                    write!(f, "{empty_fields}")?;
+                    empty_fields = 0;
+                }
+                match (c, p) {
+                    (Colour::White, Piece::Pawn) => write!(f, "P")?,
+                    (Colour::Black, Piece::Pawn) => write!(f, "p")?,
+                    (Colour::White, Piece::Rook) => write!(f, "R")?,
+                    (Colour::Black, Piece::Rook) => write!(f, "r")?,
+                    (Colour::White, Piece::Knight) => write!(f, "N")?,
+                    (Colour::Black, Piece::Knight) => write!(f, "n")?,
+                    (Colour::White, Piece::Bishop) => write!(f, "B")?,
+                    (Colour::Black, Piece::Bishop) => write!(f, "b")?,
+                    (Colour::White, Piece::Queen) => write!(f, "Q")?,
+                    (Colour::Black, Piece::Queen) => write!(f, "q")?,
+                    (Colour::White, Piece::King) => write!(f, "K")?,
+                    (Colour::Black, Piece::King) => write!(f, "k")?,
+                }
+            }
+            if empty_fields > 0 {
+                write!(f, "{empty_fields}")?;
+            }
+            if n != Number::N1 {
+                write!(f, "/")?;
+            }
+        }
+        
+        match self.inner.side_to_move {
+            Colour::Black => write!(f, " b ")?,
+            Colour::White => write!(f, " w ")?,
+        }
+
+
+        let mut no_castling = true;
+        let iter = [
+            self.inner.white_castling.short,
+            self.inner.white_castling.long,
+            self.inner.black_castling.short,
+            self.inner.black_castling.long,
+        ].into_iter().zip("KQkq".chars())
+        .filter_map(|(b, c)| b.then_some(c));
+        for c in iter {
+            no_castling = false;
+            write!(f, "{c}")?;
+        }
+        if no_castling {
+            write!(f, "-")?;
+        }
+
+        if let Some(en_passant_target) = self.inner.en_passant_target {
+            write!(f, " {en_passant_target}")
+        } else {
+            write!(f, " -")
+        }
+    }
 }
 
 #[cfg(test)]
@@ -412,7 +488,7 @@ impl Game {
     }
     pub fn from_fen(fen: &str) -> Option<Self> {
         let move_count_index = fen.rfind(char::is_whitespace)?;
-        let fullmove_count = dbg!(fen[move_count_index..].trim_start()).parse().ok()?;
+        let fullmove_count = fen[move_count_index..].trim_start().parse().ok()?;
         let half_move_clock_index = fen[..move_count_index].rfind(char::is_whitespace)?;
 
         let mut last_move_states = HashMap::new();
@@ -566,5 +642,21 @@ impl Game {
             }
             _ => return None,
         })
+    }
+    pub const fn display_fen(&self) -> GameFen {
+        GameFen {
+            inner: self,
+        }
+    }
+}
+
+pub struct GameFen<'a> {
+    inner: &'a Game,
+}
+
+impl Display for GameFen<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let Game { board_state, last_move_states, fullmove_count } = &self.inner;
+        write!(f, "{} {} {fullmove_count}", board_state.display_fen(), last_move_states.values().sum::<u8>())
     }
 }

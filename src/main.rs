@@ -62,4 +62,5 @@ fn main() {
 
         input.clear();
     }
+    println!("Game was interrupted. Use the following FEN line to continue the game later:\n{}", game.display_fen());
 }
