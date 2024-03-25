@@ -1,6 +1,6 @@
 use std::io::{stdin, stdout, Write};
 
-use talv::{algebraic::Move, game::Game};
+use talv::{algebraic::Move, game::Game, possible_moves::possible_moves};
 
 fn main() {
     let mut game;
@@ -30,6 +30,11 @@ fn main() {
         if game.is_checked(!game.side_to_move()) {
             println!("Illegal check! ");
         }
+        print!("Possible moves: ");
+        for (p, from, to) in possible_moves(&game.board_state()) {
+            print!("{p}{from}{to} ");
+        }
+        println!();
         print!("Move: ");
         stdout().flush().unwrap();
 

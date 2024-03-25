@@ -198,7 +198,6 @@ impl BoardState {
                 let cs = Coords::new(l, n);
 
                 if self.is_possible(cs, king, !side) {
-                    eprintln!("check from {cs} to {king}");
                     return true;
                 }
             }

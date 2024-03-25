@@ -97,6 +97,9 @@ impl Game {
         );
         println!("{}", self.board_state.board);
     }
+    pub fn board_state(&self) -> &BoardState {
+        &self.board_state
+    }
     pub fn side_to_move(&self) -> Colour {
         self.board_state.side_to_move
     }
