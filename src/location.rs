@@ -16,7 +16,9 @@ impl Letter {
     pub const fn new(i: u8) -> Option<Self> {
         if i < 8 {
             Some(Letter(i))
-        } else { None }
+        } else {
+            None
+        }
     }
     pub fn from_char(c: char) -> Option<Self> {
         if c.is_ascii_alphabetic() {
@@ -65,7 +67,9 @@ impl Number {
     pub const fn new(i: u8) -> Option<Self> {
         if i < 8 {
             Some(Number(i << 4))
-        } else { None }
+        } else {
+            None
+        }
     }
     pub fn from_char(c: char) -> Option<Self> {
         if c.is_ascii() {
@@ -123,10 +127,7 @@ impl Coords {
     /// location is out of bounds.
     pub fn add(self, l: i8, n: i8) -> Option<Coords> {
         Letter::from_i8(self.l().i8() + l)
-            .and_then(|l| {
-                Number::from_i8(self.n().i8() + n)
-                    .map(|n| Coords::new(l, n))
-            })
+            .and_then(|l| Number::from_i8(self.n().i8() + n).map(|n| Coords::new(l, n)))
     }
     pub fn i8_tuple(self) -> (i8, i8) {
         (self.l().i8(), self.n().i8())
@@ -135,7 +136,10 @@ impl Coords {
         Some(Coords::new(Letter::new(l as u8)?, Number::new(n as u8)?))
     }
     pub fn sub(self, other: Self) -> (i8, i8) {
-        (self.l().i8()-other.l().i8(), self.n().i8()-other.n().i8())
+        (
+            self.l().i8() - other.l().i8(),
+            self.n().i8() - other.n().i8(),
+        )
     }
     /// number, letter
     pub fn indices(self) -> (usize, usize) {
@@ -150,10 +154,14 @@ impl Display for Coords {
 }
 
 pub const LEAPS: [(i8, i8); 8] = [
-    (2, 1), (2, -1),
-    (1, 2), (1, -2),
-    (-2, 1), (-2, -1),
-    (-1, 2), (-1, -2),
+    (2, 1),
+    (2, -1),
+    (1, 2),
+    (1, -2),
+    (-2, 1),
+    (-2, -1),
+    (-1, 2),
+    (-1, -2),
 ];
 
 pub struct NumberRange {
@@ -163,7 +171,10 @@ pub struct NumberRange {
 
 impl NumberRange {
     pub const fn full() -> Self {
-        NumberRange { start: Number(0), end: Number(8 << 4) }
+        NumberRange {
+            start: Number(0),
+            end: Number(8 << 4),
+        }
     }
 }
 
@@ -197,7 +208,10 @@ pub struct LetterRange {
 
 impl LetterRange {
     pub const fn full() -> Self {
-        LetterRange { start: Letter(0), end: Letter(8) }
+        LetterRange {
+            start: Letter(0),
+            end: Letter(8),
+        }
     }
 }
 

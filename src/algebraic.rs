@@ -1,10 +1,9 @@
 use std::fmt::{self, Display};
-use std::str::Chars;
 use std::iter::Iterator;
+use std::str::Chars;
 
-use crate::location::{Coords, Number as Nt, Letter as Lt};
-
-use super::Piece;
+use crate::board::Piece;
+use crate::location::{Coords, Letter as Lt, Number as Nt};
 
 #[derive(Debug, Copy, Clone)]
 enum Token {
@@ -33,7 +32,10 @@ struct TokenStream<'a> {
 
 impl<'a> TokenStream<'a> {
     fn new(s: &'a str) -> Self {
-        TokenStream { chars: s.chars(), peeked: None }
+        TokenStream {
+            chars: s.chars(),
+            peeked: None,
+        }
     }
     fn peek(&mut self) -> Option<Token> {
         self.peeked = self.next();
@@ -42,7 +44,7 @@ impl<'a> TokenStream<'a> {
     fn set_to_peek(&mut self, token: Token) {
         assert!(self.peeked.is_none(), "cannot append on peeked stream");
         self.peeked = Some(token);
-    } 
+    }
 }
 
 impl<'a> Iterator for TokenStream<'a> {
@@ -67,16 +69,14 @@ impl<'a> Iterator for TokenStream<'a> {
             'x' => Capture,
             '+' => Check,
             '#' => Mate,
-            '0' | 'O' => {
-                match (self.chars.next(), self.chars.next()) {
-                    (Some('-'), Some('0' | 'O')) => Castle,
-                    _ => Invalid,
-                }
-            }
+            '0' | 'O' => match (self.chars.next(), self.chars.next()) {
+                (Some('-'), Some('0' | 'O')) => Castle,
+                _ => Invalid,
+            },
             '-' => match self.chars.next() {
                 Some('0' | 'O') => Long,
                 _ => Invalid,
-            }
+            },
             '=' => Promote,
             c if c.is_whitespace() => self.next()?,
             _ => Invalid,
@@ -102,10 +102,10 @@ pub enum Mover {
 impl Mover {
     pub const fn is_pawn(&self) -> bool {
         match self {
-            Mover::Piece(Piece::Pawn) |
-            Mover::PieceAt(Piece::Pawn, _) |
-            Mover::PieceAtLetter(Piece::Pawn, _) |
-            Mover::PieceAtNumber(Piece::Pawn, _) => true,
+            Mover::Piece(Piece::Pawn)
+            | Mover::PieceAt(Piece::Pawn, _)
+            | Mover::PieceAtLetter(Piece::Pawn, _)
+            | Mover::PieceAtNumber(Piece::Pawn, _) => true,
             _ => false,
         }
     }
@@ -120,7 +120,7 @@ pub enum MoveType {
         captures: bool,
         destination: Coords,
         promotes: Option<Piece>,
-    }
+    },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -135,14 +135,21 @@ impl Display for Move {
         match self.move_type {
             MoveType::ShortCastle => write!(f, "O-O")?,
             MoveType::LongCastle => write!(f, "O-O-O")?,
-            MoveType::Regular { mover, captures, destination, promotes } => {
+            MoveType::Regular {
+                mover,
+                captures,
+                destination,
+                promotes,
+            } => {
                 match mover {
                     Mover::Piece(p) => write!(f, "{}", p)?,
                     Mover::PieceAtNumber(p, n) => write!(f, "{}{}", p, n)?,
                     Mover::PieceAtLetter(p, l) => write!(f, "{}{}", p, l)?,
                     Mover::PieceAt(p, cs) => write!(f, "{}{}", p, cs)?,
                 }
-                if captures { write!(f, "x")?; }
+                if captures {
+                    write!(f, "x")?;
+                }
                 write!(f, "{}", destination)?;
                 if let Some(p) = promotes {
                     write!(f, "={}", p)?;
@@ -170,10 +177,10 @@ impl MoveType {
                     promotes: Self::parse_promotion(ts),
                 }),
                 _ => None,
-            }
+            },
             // Pn l
             (Number(n), Letter(l)) => match ts.next()? {
-                // Pn -> ln 
+                // Pn -> ln
                 Number(n2) => Some(MoveType::Regular {
                     mover: Mover::PieceAtNumber(piece, n),
                     captures: false,
@@ -181,7 +188,7 @@ impl MoveType {
                     promotes: Self::parse_promotion(ts),
                 }),
                 _ => None,
-            }
+            },
             // Pl.n
             (Letter(l), Number(n)) => match ts.peek() {
                 // Pln -> ln
@@ -214,7 +221,7 @@ impl MoveType {
                     destination: Coords::new(l, n),
                     promotes: Self::parse_promotion(ts),
                 }),
-            }
+            },
             // at letter capturing -> LN
             (Letter(l), Capture) => Some(MoveType::Regular {
                 mover: Mover::PieceAtLetter(piece, l),
@@ -237,8 +244,8 @@ impl MoveType {
                     destination: Coords::new(l2, n2),
                     promotes: Self::parse_promotion(ts),
                 }),
-                _ => None
-            }
+                _ => None,
+            },
             _ => None,
         }
     }
@@ -256,7 +263,7 @@ impl MoveType {
                     Some(Token::Capital(p)) => Some(p),
                     _ => None,
                 }
-            },
+            }
             _ => None,
         }
     }
@@ -272,9 +279,9 @@ impl MoveType {
                 Some(Long) => {
                     ts.next();
                     Some(MoveType::LongCastle)
-                },
+                }
                 _ => Some(MoveType::ShortCastle),
-            }
+            },
             _ => None,
         }
     }
@@ -288,18 +295,30 @@ impl Move {
         let move_type = MoveType::from_ts(&mut ts)?;
 
         Some(match ts.peek() {
-            Some(Mate) => Move { move_type, king_threat: KingThreat::CheckMate },
+            Some(Mate) => Move {
+                move_type,
+                king_threat: KingThreat::CheckMate,
+            },
             Some(Check) => {
                 let _ = ts.next();
 
                 if matches!(ts.peek(), Some(Check)) {
                     ts.next();
-                    Move { move_type, king_threat: KingThreat::CheckMate }
+                    Move {
+                        move_type,
+                        king_threat: KingThreat::CheckMate,
+                    }
                 } else {
-                    Move { move_type, king_threat: KingThreat::Check }
+                    Move {
+                        move_type,
+                        king_threat: KingThreat::Check,
+                    }
                 }
             }
-            _ => Move { move_type, king_threat: KingThreat::None },
+            _ => Move {
+                move_type,
+                king_threat: KingThreat::None,
+            },
         })
     }
     pub fn promotion(&self) -> Option<Piece> {

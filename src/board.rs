@@ -1,4 +1,7 @@
-use std::{fmt::{self, Display}, ops::Not};
+use std::{
+    fmt::{self, Display},
+    ops::Not,
+};
 
 use crate::location::Coords;
 
@@ -16,14 +19,18 @@ pub enum Piece {
 impl Display for Piece {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         use self::Piece::*;
-        write!(f, "{}", match *self {
-            Pawn => "",
-            Rook => "R",
-            Knight => "N",
-            Bishop => "B",
-            Queen => "Q",
-            King => "K",
-        })
+        write!(
+            f,
+            "{}",
+            match *self {
+                Pawn => "",
+                Rook => "R",
+                Knight => "N",
+                Bishop => "B",
+                Queen => "Q",
+                King => "K",
+            }
+        )
     }
 }
 
@@ -51,8 +58,12 @@ pub enum Field {
 }
 
 impl Field {
-    pub fn is_empty(&self) -> bool { matches!(*self, Self::Empty) }
-    pub fn is_occupied(&self) -> bool { matches!(*self, Self::Occupied(_, _)) }
+    pub fn is_empty(&self) -> bool {
+        matches!(*self, Self::Empty)
+    }
+    pub fn is_occupied(&self) -> bool {
+        matches!(*self, Self::Occupied(_, _))
+    }
     pub fn into_piece(self) -> Option<Piece> {
         match self {
             Self::Empty => None,
@@ -63,24 +74,28 @@ impl Field {
 
 impl Display for Field {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        use self::Piece::*;
         use self::Colour::*;
         use self::Field::*;
-        write!(f, "{}", match *self {
-            Empty => " ",
-            Occupied(Black, Pawn) => "♟",
-            Occupied(Black, Rook) => "♜",
-            Occupied(Black, Knight) => "♞",
-            Occupied(Black, Bishop) => "♝",
-            Occupied(Black, Queen) => "♛",
-            Occupied(Black, King) => "♚",
-            Occupied(White, Pawn) => "♙",
-            Occupied(White, Rook) => "♖",
-            Occupied(White, Knight) => "♘",
-            Occupied(White, Bishop) => "♗",
-            Occupied(White, Queen) => "♕",
-            Occupied(White, King) => "♔",
-        })
+        use self::Piece::*;
+        write!(
+            f,
+            "{}",
+            match *self {
+                Empty => " ",
+                Occupied(Black, Pawn) => "♟",
+                Occupied(Black, Rook) => "♜",
+                Occupied(Black, Knight) => "♞",
+                Occupied(Black, Bishop) => "♝",
+                Occupied(Black, Queen) => "♛",
+                Occupied(Black, King) => "♚",
+                Occupied(White, Pawn) => "♙",
+                Occupied(White, Rook) => "♖",
+                Occupied(White, Knight) => "♘",
+                Occupied(White, Bishop) => "♗",
+                Occupied(White, Queen) => "♕",
+                Occupied(White, King) => "♔",
+            }
+        )
     }
 }
 

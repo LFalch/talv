@@ -1,6 +1,6 @@
 use std::io::{stdin, stdout, Write};
 
-use talv::{algebraic::Move, Game};
+use talv::{algebraic::Move, game::Game};
 
 fn main() {
     let mut game;
@@ -12,7 +12,6 @@ fn main() {
     if input.trim().is_empty() {
         game = Game::new();
     } else {
-
         game = match Game::from_fen(input.trim()) {
             Some(game) => game,
             None => {
@@ -62,5 +61,8 @@ fn main() {
 
         input.clear();
     }
-    println!("Game was interrupted. Use the following FEN line to continue the game later:\n{}", game.display_fen());
+    println!(
+        "Game was interrupted. Use the following FEN line to continue the game later:\n{}",
+        game.display_fen()
+    );
 }
