@@ -1,7 +1,7 @@
 use std::fmt::{self, Display};
 
 use super::board::*;
-use super::location::{Coords, Letter, LetterRange, Number, NumberRange};
+use super::location::{Coords, File, FileRange, Rank, RankRange};
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub(crate) struct CastlesAllowed {
@@ -57,9 +57,9 @@ impl BoardState {
 
         let pieces = fields.next()?;
 
-        let mut ns = NumberRange::full().rev();
+        let mut ns = RankRange::full().rev();
         let mut n = ns.next().unwrap();
-        let mut ls = LetterRange::full();
+        let mut ls = FileRange::full();
         for c in pieces.chars() {
             match c {
                 '/' => {
@@ -68,7 +68,7 @@ impl BoardState {
                         return None;
                     }
                     n = ns.next()?;
-                    ls = LetterRange::full();
+                    ls = FileRange::full();
                 }
                 c @ '1'..='8' => {
                     for _ in '0'..c {
@@ -193,8 +193,8 @@ impl BoardState {
     pub fn in_check(&self, side: Colour) -> bool {
         let king = self.find_king(side);
 
-        for n in NumberRange::full() {
-            for l in LetterRange::full() {
+        for n in RankRange::full() {
+            for l in FileRange::full() {
                 let cs = Coords::new(l, n);
 
                 if self.is_possible(cs, king, !side) {
@@ -205,8 +205,8 @@ impl BoardState {
         false
     }
     fn find_king(&self, c: Colour) -> Coords {
-        for n in NumberRange::full() {
-            for l in LetterRange::full() {
+        for n in RankRange::full() {
+            for l in FileRange::full() {
                 let cs = Coords::new(l, n);
 
                 match self.board.get(cs) {
@@ -218,12 +218,12 @@ impl BoardState {
         unreachable!();
     }
     pub fn pawn_promototion_pending(&self) -> Option<Coords> {
-        for l in LetterRange::full() {
-            let cs = Coords::new(l, Number::N1);
+        for l in FileRange::full() {
+            let cs = Coords::new(l, Rank::N1);
             if let Field::Occupied(Colour::Black, Piece::Pawn) = self.board.get(cs) {
                 return Some(cs);
             }
-            let cs = Coords::new(l, Number::N8);
+            let cs = Coords::new(l, Rank::N8);
             if let Field::Occupied(Colour::White, Piece::Pawn) = self.board.get(cs) {
                 return Some(cs);
             }
@@ -235,9 +235,9 @@ impl BoardState {
             match into {
                 Piece::Pawn | Piece::King => false,
                 p => {
-                    let c = match pcs.n() {
-                        Number::N1 => Colour::Black,
-                        Number::N8 => Colour::White,
+                    let c = match pcs.r() {
+                        Rank::N1 => Colour::Black,
+                        Rank::N8 => Colour::White,
                         _ => unreachable!(),
                     };
                     self.board.set(pcs, Field::Occupied(c, p));
@@ -258,10 +258,10 @@ impl BoardState {
             let mover = self.board.set(from, Field::Empty);
             let taken = match self.en_passant_target {
                 Some(en_passant_target) if unto == en_passant_target => {
-                    let targeted_pawn_pos = match en_passant_target.n() {
+                    let targeted_pawn_pos = match en_passant_target.r() {
                         // FIXME: probably do this better
-                        Number::N3 => en_passant_target.add(0, 1).unwrap(),
-                        Number::N6 => en_passant_target.add(0, -1).unwrap(),
+                        Rank::N3 => en_passant_target.add(0, 1).unwrap(),
+                        Rank::N6 => en_passant_target.add(0, -1).unwrap(),
                         _ => unreachable!(),
                     };
 
@@ -296,13 +296,13 @@ impl BoardState {
                         1 => {
                             let rook = self
                                 .board
-                                .set(Coords::new(Letter::H, unto.n()), Field::Empty);
+                                .set(Coords::new(File::H, unto.r()), Field::Empty);
                             self.board.set(unto.add(-1, 0).unwrap(), rook);
                         }
                         -1 => {
                             let rook = self
                                 .board
-                                .set(Coords::new(Letter::A, unto.n()), Field::Empty);
+                                .set(Coords::new(File::A, unto.r()), Field::Empty);
                             self.board.set(unto.add(1, 0).unwrap(), rook);
                         }
                         _ => unreachable!(),
@@ -326,8 +326,8 @@ impl BoardState {
     }
     fn update_allowed_castles(&mut self, mover: Field, pos: Coords) {
         let (ac, brn) = match self.side_to_move {
-            Colour::Black => (&mut self.black_castling, Number::N8),
-            Colour::White => (&mut self.white_castling, Number::N1),
+            Colour::Black => (&mut self.black_castling, Rank::N8),
+            Colour::White => (&mut self.white_castling, Rank::N1),
         };
 
         match mover {
@@ -335,10 +335,10 @@ impl BoardState {
                 ac.short = false;
                 ac.long = false;
             }
-            Field::Occupied(_, Piece::Rook) if pos.n() == brn => {
-                if pos.l() == Letter::H {
+            Field::Occupied(_, Piece::Rook) if pos.r() == brn => {
+                if pos.f() == File::H {
                     ac.short = false;
-                } else if pos.l() == Letter::A {
+                } else if pos.f() == File::A {
                     ac.long = false;
                 }
             }
@@ -369,22 +369,22 @@ impl BoardState {
                     Colour::Black => -1,
                     Colour::White => 1,
                 };
-                let d_num = sign * (unto.n().i8() - from.n().i8());
+                let d_num = sign * (unto.r().i8() - from.r().i8());
 
                 // Handle en passant
                 let taking = taking || self.en_passant_target == Some(unto);
 
                 // same file <=> !taking
-                if (from.l() != unto.l()) != taking {
+                if (from.f() != unto.f()) != taking {
                     return false;
                 }
 
                 if taking {
-                    d_num == 1 && (unto.l().i8() - from.l().i8()).abs() == 1
+                    d_num == 1 && (unto.f().i8() - from.f().i8()).abs() == 1
                 } else {
                     if d_num == 1 {
                         true
-                    } else if d_num == 2 && 2 * from.n().i8() + 5 * sign == 7 {
+                    } else if d_num == 2 && 2 * from.r().i8() + 5 * sign == 7 {
                         self.board.get(from.add(0, sign).unwrap()).is_empty()
                     } else {
                         false
@@ -460,9 +460,9 @@ pub struct BoardStateFen<'a> {
 
 impl Display for BoardStateFen<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        for n in NumberRange::full().rev() {
+        for n in RankRange::full().rev() {
             let mut empty_fields = 0;
-            for l in LetterRange::full() {
+            for l in FileRange::full() {
                 let field = self.inner.board.get(Coords::new(l, n));
                 let Field::Occupied(c, p) = field else {
                     empty_fields += 1;
@@ -490,7 +490,7 @@ impl Display for BoardStateFen<'_> {
             if empty_fields > 0 {
                 write!(f, "{empty_fields}")?;
             }
-            if n != Number::N1 {
+            if n != Rank::N1 {
                 write!(f, "/")?;
             }
         }

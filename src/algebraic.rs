@@ -3,7 +3,7 @@ use std::iter::Iterator;
 use std::str::Chars;
 
 use crate::board::Piece;
-use crate::location::{Coords, Letter as Lt, Number as Nt};
+use crate::location::{Coords, File as Lt, Rank as Nt};
 
 #[derive(Debug, Copy, Clone)]
 enum Token {

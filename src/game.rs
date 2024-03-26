@@ -8,7 +8,7 @@ use crate::boardstate::{BoardState, Success};
 
 use super::algebraic::{Move, MoveType, Mover};
 use super::board::*;
-use super::location::{Coords, Letter, LetterRange, Number, NumberRange};
+use super::location::{Coords, File, FileRange, Rank, RankRange};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Game {
@@ -117,8 +117,8 @@ impl Game {
         let to_play = self.board_state.side_to_move;
 
         let (ca, brn) = match self.board_state.side_to_move {
-            Colour::Black => (self.board_state.black_castling, Number::N8),
-            Colour::White => (self.board_state.white_castling, Number::N1),
+            Colour::Black => (self.board_state.black_castling, Rank::N8),
+            Colour::White => (self.board_state.white_castling, Rank::N1),
         };
 
         let capturing = |destination| {
@@ -128,10 +128,10 @@ impl Game {
 
         Some(match alg_move.move_type {
             MoveType::ShortCastle if ca.short => {
-                (Coords::new(Letter::E, brn), Coords::new(Letter::G, brn))
+                (Coords::new(File::E, brn), Coords::new(File::G, brn))
             }
             MoveType::LongCastle if ca.long => {
-                (Coords::new(Letter::E, brn), Coords::new(Letter::C, brn))
+                (Coords::new(File::E, brn), Coords::new(File::C, brn))
             }
             MoveType::Regular {
                 captures,
@@ -146,7 +146,7 @@ impl Game {
             } => {
                 // If a move is a pawn going to a back rank, it should be a promotion move
                 if mover.is_pawn()
-                    && (unto.n() == Number::N8 || unto.n() == Number::N1)
+                    && (unto.r() == Rank::N8 || unto.r() == Rank::N1)
                     && promotes.is_none()
                 {
                     return None;
@@ -167,7 +167,7 @@ impl Game {
                         }
                         Mover::PieceAtLetter(p, l) => {
                             let mut move_from = None;
-                            for n in NumberRange::full() {
+                            for n in RankRange::full() {
                                 let coords = Coords::new(l, n);
                                 match self.board_state.board.get(coords) {
                                     Field::Occupied(c, p2)
@@ -189,7 +189,7 @@ impl Game {
                         }
                         Mover::PieceAtNumber(p, n) => {
                             let mut move_from = None;
-                            for l in LetterRange::full() {
+                            for l in FileRange::full() {
                                 let coords = Coords::new(l, n);
                                 match self.board_state.board.get(coords) {
                                     Field::Occupied(c, p2)
@@ -211,8 +211,8 @@ impl Game {
                         }
                         Mover::Piece(p) => {
                             let mut move_from = None;
-                            for n in NumberRange::full() {
-                                for l in LetterRange::full() {
+                            for n in RankRange::full() {
+                                for l in FileRange::full() {
                                     let coords = Coords::new(l, n);
                                     match self.board_state.board.get(coords) {
                                         Field::Occupied(c, p2)

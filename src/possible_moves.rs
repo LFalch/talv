@@ -1,27 +1,18 @@
 use crate::{
     board::{Colour, Field, Piece},
     boardstate::BoardState,
-    location::{Coords, LetterRange, NumberRange},
+    location::{Coords, FileRange, RankRange, LEAPS},
 };
 
 const STRAIGHTS: [(i8, i8); 4] = [(1, 0), (-1, 0), (0, 1), (0, -1)];
 const CASTLINGS: [(i8, i8); 2] = [(2, 0), (-2, 0)];
 const DIAGANOLS: [(i8, i8); 4] = [(1, 1), (1, -1), (-1, 1), (-1, -1)];
-const KNIGHTIES: [(i8, i8); 8] = [
-    (1, 2),
-    (1, -2),
-    (-1, 2),
-    (-1, -2),
-    (2, 1),
-    (-2, 1),
-    (2, -1),
-    (-2, -1),
-];
+const KNIGHTIES: [(i8, i8); 8] = LEAPS;
 
 pub fn possible_moves(state: &BoardState) -> Vec<(Piece, Coords, Coords)> {
     let mut pieces = Vec::new();
-    for n in NumberRange::full() {
-        for l in LetterRange::full() {
+    for n in RankRange::full() {
+        for l in FileRange::full() {
             let from = Coords::new(l, n);
             match state.board.get(from) {
                 Field::Occupied(side, p) if side == state.side_to_move => pieces.push((from, p)),

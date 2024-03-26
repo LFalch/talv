@@ -1,21 +1,21 @@
 use std::fmt::{self, Display};
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
-pub struct Letter(u8);
+pub struct File(u8);
 
-impl Letter {
-    pub const A: Self = Letter(0);
-    pub const B: Self = Letter(1);
-    pub const C: Self = Letter(2);
-    pub const D: Self = Letter(3);
-    pub const E: Self = Letter(4);
-    pub const F: Self = Letter(5);
-    pub const G: Self = Letter(6);
-    pub const H: Self = Letter(7);
+impl File {
+    pub const A: Self = File(0);
+    pub const B: Self = File(1);
+    pub const C: Self = File(2);
+    pub const D: Self = File(3);
+    pub const E: Self = File(4);
+    pub const F: Self = File(5);
+    pub const G: Self = File(6);
+    pub const H: Self = File(7);
 
     pub const fn new(i: u8) -> Option<Self> {
         if i < 8 {
-            Some(Letter(i))
+            Some(File(i))
         } else {
             None
         }
@@ -25,7 +25,7 @@ impl Letter {
             let mut c = c;
             c.make_ascii_lowercase();
 
-            Letter::new((c as u8).wrapping_sub(b'a'))
+            File::new((c as u8).wrapping_sub(b'a'))
         } else {
             None
         }
@@ -38,13 +38,13 @@ impl Letter {
     }
 }
 
-impl From<Letter> for usize {
-    fn from(l: Letter) -> Self {
+impl From<File> for usize {
+    fn from(l: File) -> Self {
         l.i8() as usize
     }
 }
 
-impl Display for Letter {
+impl Display for File {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let c = (b'a' + self.0) as char;
         c.fmt(f)
@@ -52,28 +52,28 @@ impl Display for Letter {
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
-pub struct Number(u8);
+pub struct Rank(u8);
 
-impl Number {
-    pub const N1: Self = Number(0 << 3);
-    pub const N2: Self = Number(1 << 3);
-    pub const N3: Self = Number(2 << 3);
-    pub const N4: Self = Number(3 << 3);
-    pub const N5: Self = Number(4 << 3);
-    pub const N6: Self = Number(5 << 3);
-    pub const N7: Self = Number(6 << 3);
-    pub const N8: Self = Number(7 << 3);
+impl Rank {
+    pub const N1: Self = Rank(0 << 3);
+    pub const N2: Self = Rank(1 << 3);
+    pub const N3: Self = Rank(2 << 3);
+    pub const N4: Self = Rank(3 << 3);
+    pub const N5: Self = Rank(4 << 3);
+    pub const N6: Self = Rank(5 << 3);
+    pub const N7: Self = Rank(6 << 3);
+    pub const N8: Self = Rank(7 << 3);
 
     pub const fn new(i: u8) -> Option<Self> {
         if i < 8 {
-            Some(Number(i << 3))
+            Some(Rank(i << 3))
         } else {
             None
         }
     }
     pub fn from_char(c: char) -> Option<Self> {
         if c.is_ascii() {
-            Number::new((c as u8).wrapping_sub(b'1'))
+            Rank::new((c as u8).wrapping_sub(b'1'))
         } else {
             None
         }
@@ -86,13 +86,13 @@ impl Number {
     }
 }
 
-impl From<Number> for usize {
-    fn from(l: Number) -> Self {
+impl From<Rank> for usize {
+    fn from(l: Rank) -> Self {
         l.i8() as usize
     }
 }
 
-impl Display for Number {
+impl Display for Rank {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let n = (self.0 >> 3) + 1;
         n.fmt(f)
@@ -104,45 +104,44 @@ impl Display for Number {
 pub struct Coords(u8);
 
 impl Coords {
-    pub fn new(l: Letter, n: Number) -> Self {
+    pub fn new(l: File, n: Rank) -> Self {
         Coords(l.0 | n.0)
     }
     pub fn from_str(s: &str) -> Option<Self> {
         let mut chars = s.chars();
-        let l = Letter::from_char(chars.next()?)?;
-        let n = Number::from_char(chars.next()?)?;
+        let l = File::from_char(chars.next()?)?;
+        let n = Rank::from_char(chars.next()?)?;
         if chars.next().is_none() {
             Some(Self::new(l, n))
         } else {
             None
         }
     }
-    pub fn l(self) -> Letter {
-        Letter(self.0 & 0b111)
+    pub fn f(self) -> File {
+        File(self.0 & 0b111)
     }
-    pub fn n(self) -> Number {
-        Number(self.0 & 0b111_000)
+    pub fn r(self) -> Rank {
+        Rank(self.0 & 0b111_000)
     }
     /// Calculates a new location based on the relative
     /// coordinates given. Yields `None` if the resulting
     /// location is out of bounds.
     pub fn add(self, l: i8, n: i8) -> Option<Coords> {
-        Letter::from_i8(self.l().i8() + l)
-            .and_then(|l| Number::from_i8(self.n().i8() + n).map(|n| Coords::new(l, n)))
+        File::from_i8(self.f().i8() + l)
+            .and_then(|l| Rank::from_i8(self.r().i8() + n).map(|n| Coords::new(l, n)))
     }
     pub fn i8_tuple(self) -> (i8, i8) {
-        (self.l().i8(), self.n().i8())
+        (self.f().i8(), self.r().i8())
     }
     pub fn from_u8_tuple(l: i8, n: i8) -> Option<Self> {
-        Some(Coords::new(Letter::new(l as u8)?, Number::new(n as u8)?))
+        Some(Coords::new(File::new(l as u8)?, Rank::new(n as u8)?))
     }
     pub fn sub(self, other: Self) -> (i8, i8) {
         (
-            self.l().i8() - other.l().i8(),
-            self.n().i8() - other.n().i8(),
+            self.f().i8() - other.f().i8(),
+            self.r().i8() - other.r().i8(),
         )
     }
-    /// number, letter
     pub fn into_u8(self) -> u8 {
         self.0
     }
@@ -150,7 +149,7 @@ impl Coords {
 
 impl Display for Coords {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}{}", self.l(), self.n())
+        write!(f, "{}{}", self.f(), self.r())
     }
 }
 
@@ -165,22 +164,22 @@ pub const LEAPS: [(i8, i8); 8] = [
     (-1, -2),
 ];
 
-pub struct NumberRange {
-    start: Number,
-    end: Number,
+pub struct RankRange {
+    start: Rank,
+    end: Rank,
 }
 
-impl NumberRange {
+impl RankRange {
     pub const fn full() -> Self {
-        NumberRange {
-            start: Number(0),
-            end: Number(8 << 3),
+        RankRange {
+            start: Rank(0),
+            end: Rank(8 << 3),
         }
     }
 }
 
-impl Iterator for NumberRange {
-    type Item = Number;
+impl Iterator for RankRange {
+    type Item = Rank;
     fn next(&mut self) -> Option<Self::Item> {
         if self.start < self.end {
             let ret = self.start;
@@ -191,7 +190,7 @@ impl Iterator for NumberRange {
         }
     }
 }
-impl DoubleEndedIterator for NumberRange {
+impl DoubleEndedIterator for RankRange {
     fn next_back(&mut self) -> Option<Self::Item> {
         if self.start < self.end {
             self.end.0 -= 0b1000;
@@ -202,22 +201,22 @@ impl DoubleEndedIterator for NumberRange {
     }
 }
 
-pub struct LetterRange {
-    start: Letter,
-    end: Letter,
+pub struct FileRange {
+    start: File,
+    end: File,
 }
 
-impl LetterRange {
+impl FileRange {
     pub const fn full() -> Self {
-        LetterRange {
-            start: Letter(0),
-            end: Letter(8),
+        FileRange {
+            start: File(0),
+            end: File(8),
         }
     }
 }
 
-impl Iterator for LetterRange {
-    type Item = Letter;
+impl Iterator for FileRange {
+    type Item = File;
     fn next(&mut self) -> Option<Self::Item> {
         if self.start < self.end {
             let ret = self.start;
