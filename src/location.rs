@@ -1,4 +1,4 @@
-use std::fmt::{self, Display};
+use std::{fmt::{self, Display}, iter};
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct File(u8);
@@ -104,7 +104,7 @@ impl Display for Rank {
 pub struct Coords(u8);
 
 impl Coords {
-    pub fn new(l: File, n: Rank) -> Self {
+    pub const fn new(l: File, n: Rank) -> Self {
         Coords(l.0 | n.0)
     }
     pub fn from_str(s: &str) -> Option<Self> {
@@ -144,6 +144,18 @@ impl Coords {
     }
     pub fn into_u8(self) -> u8 {
         self.0
+    }
+    pub fn full_range() -> impl Iterator<Item=Coords> {
+        let mut i = 0;
+        iter::from_fn(move || {
+            if i < 64 {
+                let c = i;
+                i += 1;
+                Some(Coords(c))
+            } else {
+                None
+            }
+        })
     }
 }
 

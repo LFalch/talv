@@ -1,7 +1,7 @@
 use crate::{
     board::{Colour, Field, Piece},
     boardstate::BoardState,
-    location::{Coords, FileRange, RankRange, LEAPS},
+    location::{Coords, LEAPS},
 };
 
 const STRAIGHTS: [(i8, i8); 4] = [(1, 0), (-1, 0), (0, 1), (0, -1)];
@@ -10,17 +10,6 @@ const DIAGANOLS: [(i8, i8); 4] = [(1, 1), (1, -1), (-1, 1), (-1, -1)];
 const KNIGHTIES: [(i8, i8); 8] = LEAPS;
 
 pub fn possible_moves(state: &BoardState) -> Vec<(Piece, Coords, Coords)> {
-    let mut pieces = Vec::new();
-    for n in RankRange::full() {
-        for l in FileRange::full() {
-            let from = Coords::new(l, n);
-            match state.board.get(from) {
-                Field::Occupied(side, p) if side == state.side_to_move => pieces.push((from, p)),
-                _ => (),
-            }
-        }
-    }
-
     let mut possible_moves = Vec::new();
 
     let mut check_move = |p, from, unto| {
@@ -39,48 +28,52 @@ pub fn possible_moves(state: &BoardState) -> Vec<(Piece, Coords, Coords)> {
         Colour::White => 1,
     };
 
-    for (from, p) in pieces {
-        match p {
-            Piece::Pawn => [
-                (0, 1 * forwards),
-                (0, 2 * forwards),
-                (1, 1 * forwards),
-                (-1, 1 * forwards),
-            ]
-            .into_iter()
-            .filter_map(|(l, n)| from.add(l, n))
-            .for_each(|unto| {
-                (&mut check_move)(p, from, unto);
-            }),
-            Piece::Knight => KNIGHTIES
+    for from in Coords::full_range() {
+        match state.board.get(from) {
+            Field::Occupied(side, p) if side == state.side_to_move => match p {
+                Piece::Pawn => [
+                    (0, 1 * forwards),
+                    (0, 2 * forwards),
+                    (1, 1 * forwards),
+                    (-1, 1 * forwards),
+                ]
                 .into_iter()
                 .filter_map(|(l, n)| from.add(l, n))
                 .for_each(|unto| {
                     (&mut check_move)(p, from, unto);
                 }),
-            Piece::King => STRAIGHTS.into_iter()
-                .chain(DIAGANOLS.into_iter())
-                .chain(CASTLINGS.into_iter())
-                .into_iter()
-                .filter_map(|(l, n)| from.add(l, n))
-                .for_each(|unto| {
-                    (&mut check_move)(p, from, unto);
-                }),
-            Piece::Rook => {
-                for (dl, dn) in STRAIGHTS {
-                    follow_direction(&mut check_move, from, p, dl, dn);
+                Piece::Knight => KNIGHTIES
+                    .into_iter()
+                    .filter_map(|(l, n)| from.add(l, n))
+                    .for_each(|unto| {
+                        (&mut check_move)(p, from, unto);
+                    }),
+                Piece::King => STRAIGHTS
+                    .into_iter()
+                    .chain(DIAGANOLS.into_iter())
+                    .chain(CASTLINGS.into_iter())
+                    .into_iter()
+                    .filter_map(|(l, n)| from.add(l, n))
+                    .for_each(|unto| {
+                        (&mut check_move)(p, from, unto);
+                    }),
+                Piece::Rook => {
+                    for (dl, dn) in STRAIGHTS {
+                        follow_direction(&mut check_move, from, p, dl, dn);
+                    }
                 }
-            }
-            Piece::Bishop => {
-                for (dl, dn) in DIAGANOLS {
-                    follow_direction(&mut check_move, from, p, dl, dn);
+                Piece::Bishop => {
+                    for (dl, dn) in DIAGANOLS {
+                        follow_direction(&mut check_move, from, p, dl, dn);
+                    }
                 }
-            }
-            Piece::Queen => {
-                for (dl, dn) in [STRAIGHTS, DIAGANOLS].concat() {
-                    follow_direction(&mut check_move, from, p, dl, dn);
+                Piece::Queen => {
+                    for (dl, dn) in [STRAIGHTS, DIAGANOLS].concat() {
+                        follow_direction(&mut check_move, from, p, dl, dn);
+                    }
                 }
-            }
+            },
+            _ => (),
         }
     }
 
