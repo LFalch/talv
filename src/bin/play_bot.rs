@@ -1,6 +1,6 @@
 use std::io::{stdin, stdout, Write};
 
-use talv::{algebraic::Move, board::Colour, bots::bot1, game::Game, possible_moves::possible_moves};
+use talv::{algebraic::Move, board::{Colour, Piece}, bots::bot1, game::Game, possible_moves::possible_moves};
 
 fn main() {
     let mut game;
@@ -32,6 +32,11 @@ fn main() {
             }
         }
 
+        if game.draw_claimable() {
+            println!("Draw");
+            break;
+        }
+
         match game.side_to_move() {
             Colour::Black => {
                 let moves = bot1::get_moves_ranked(game.board_state());
@@ -42,6 +47,7 @@ fn main() {
                 println!();
                 let (_, from, unto) = moves[0];
                 game.make_move(from, unto).then_some(()).unwrap();
+                game.promote(Piece::Queen);
             }
             Colour::White => {
                 print!("Possible moves: ");

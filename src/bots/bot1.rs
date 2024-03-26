@@ -18,9 +18,15 @@ fn search_inner(state: &BoardState, mut alpha: f32, beta: f32, depth: usize, pre
         return eval(state);
     }
 
+    let possible_moves = possible_moves(state);
+
+    if possible_moves.is_empty() {
+        return eval(state);
+    }
+
     let mut best_eval = f32::NEG_INFINITY;
 
-    for (_, f, t) in possible_moves(state) {
+    for (_, f, t) in possible_moves {
         let mut new_state = state.clone();
         new_state.make_move(f, t).unwrap();
 
@@ -28,7 +34,7 @@ fn search_inner(state: &BoardState, mut alpha: f32, beta: f32, depth: usize, pre
 
         if eval > best_eval {
             best_eval = eval;
-            alpha = alpha.max(eval);
+            alpha = if alpha.is_nan() { eval } else { alpha.max(eval) };
             if beta <= alpha {
                 break;
             }
@@ -39,7 +45,7 @@ fn search_inner(state: &BoardState, mut alpha: f32, beta: f32, depth: usize, pre
 }
 
 pub fn get_moves_ranked(state: &BoardState) -> Vec<(f32, Coords, Coords)> {
-    const INITIAL_DEPTH: usize = 6;
+    const INITIAL_DEPTH: usize = 4;
     let possible_moves = possible_moves(state);
 
     let mut moves_with_eval = Vec::with_capacity(possible_moves.len());
@@ -49,7 +55,7 @@ pub fn get_moves_ranked(state: &BoardState) -> Vec<(f32, Coords, Coords)> {
         'evaluate_possible_moves: for (_, from, unto) in possible_moves {
             let mut new_state = state.clone();
             new_state.make_move(from, unto).unwrap();
-            let eval = -search(&new_state, f32::NEG_INFINITY, f32::INFINITY, INITIAL_DEPTH, &mut previous);
+            let eval = -search(&new_state, f32::NAN, f32::NAN, INITIAL_DEPTH, &mut previous);
 
             for (i, &(e, _, _)) in moves_with_eval.iter().enumerate() {
                 if eval > e {
@@ -66,11 +72,26 @@ pub fn get_moves_ranked(state: &BoardState) -> Vec<(f32, Coords, Coords)> {
 
 /// Positive value => good for current last player
 fn eval(state: &BoardState) -> f32 {
-    if state.in_check(state.side_to_move) && possible_moves(state).is_empty() {
-        // I'm in a checkmate!!! oh no!
-        return f32::NEG_INFINITY;
+    if possible_moves(state).is_empty() {
+        if state.in_check(state.side_to_move) {
+            // I'm in a checkmate!!! oh no!
+            return f32::NEG_INFINITY;
+        } else {
+            // draw :/
+            return 0.;
+        }
     }
-    eval_pieces(state)
+    let mut checking_bonus = 0.;
+    if state.in_check(!state.side_to_move) {
+        checking_bonus += 10.;
+        let mut new_state = state.clone();
+        new_state.side_to_move = !new_state.side_to_move;
+        if possible_moves(&new_state).is_empty() {
+            return f32::INFINITY;
+        }
+    }
+
+    eval_pieces(state) + checking_bonus
 }
 fn eval_pieces(state: &BoardState) -> f32 {
     let mut piece_difference = 0.;
@@ -94,11 +115,11 @@ fn eval_pieces(state: &BoardState) -> f32 {
 
 const fn piece_value(piece: Piece) -> f32 {
     match piece {
-        Piece::Pawn => 10.,
-        Piece::Knight => 30.,
-        Piece::Bishop => 30.,
-        Piece::Rook => 50.,
-        Piece::Queen => 90.,
+        Piece::Pawn => 1.,
+        Piece::Knight => 3.,
+        Piece::Bishop => 3.,
+        Piece::Rook => 5.,
+        Piece::Queen => 9.,
         // cannot use infinity for this as it would make the average useless
         Piece::King => 0.,
     }

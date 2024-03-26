@@ -52,8 +52,8 @@ impl Game {
         })
     }
     pub fn draw_claimable(&self) -> bool {
-        self.last_move_states[&self.board_state] == 3
-            || self.last_move_states.values().copied().sum::<u8>() == 100
+        self.last_move_states.get(&self.board_state).copied().unwrap_or(0) == 3
+        || self.last_move_states.values().copied().sum::<u8>() == 100
     }
     fn attempt_move(&self, from: Coords, unto: Coords) -> Option<(Success, BoardState)> {
         let mut board_state = self.board_state;
