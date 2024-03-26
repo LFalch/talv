@@ -55,18 +55,18 @@ impl Display for Letter {
 pub struct Number(u8);
 
 impl Number {
-    pub const N1: Self = Number(0 << 4);
-    pub const N2: Self = Number(1 << 4);
-    pub const N3: Self = Number(2 << 4);
-    pub const N4: Self = Number(3 << 4);
-    pub const N5: Self = Number(4 << 4);
-    pub const N6: Self = Number(5 << 4);
-    pub const N7: Self = Number(6 << 4);
-    pub const N8: Self = Number(7 << 4);
+    pub const N1: Self = Number(0 << 3);
+    pub const N2: Self = Number(1 << 3);
+    pub const N3: Self = Number(2 << 3);
+    pub const N4: Self = Number(3 << 3);
+    pub const N5: Self = Number(4 << 3);
+    pub const N6: Self = Number(5 << 3);
+    pub const N7: Self = Number(6 << 3);
+    pub const N8: Self = Number(7 << 3);
 
     pub const fn new(i: u8) -> Option<Self> {
         if i < 8 {
-            Some(Number(i << 4))
+            Some(Number(i << 3))
         } else {
             None
         }
@@ -82,7 +82,7 @@ impl Number {
         Self::new(i as u8)
     }
     pub fn i8(self) -> i8 {
-        (self.0 >> 4) as i8
+        (self.0 >> 3) as i8
     }
 }
 
@@ -94,12 +94,13 @@ impl From<Number> for usize {
 
 impl Display for Number {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let n = (self.0 >> 4) + 1;
+        let n = (self.0 >> 3) + 1;
         n.fmt(f)
     }
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+#[repr(transparent)]
 pub struct Coords(u8);
 
 impl Coords {
@@ -117,10 +118,10 @@ impl Coords {
         }
     }
     pub fn l(self) -> Letter {
-        Letter(self.0 & 0b1111)
+        Letter(self.0 & 0b111)
     }
     pub fn n(self) -> Number {
-        Number(self.0 & 0b1111_0000)
+        Number(self.0 & 0b111_000)
     }
     /// Calculates a new location based on the relative
     /// coordinates given. Yields `None` if the resulting
@@ -142,8 +143,8 @@ impl Coords {
         )
     }
     /// number, letter
-    pub fn indices(self) -> (usize, usize) {
-        (self.n().into(), self.l().into())
+    pub fn into_u8(self) -> u8 {
+        self.0
     }
 }
 
@@ -173,7 +174,7 @@ impl NumberRange {
     pub const fn full() -> Self {
         NumberRange {
             start: Number(0),
-            end: Number(8 << 4),
+            end: Number(8 << 3),
         }
     }
 }
@@ -183,7 +184,7 @@ impl Iterator for NumberRange {
     fn next(&mut self) -> Option<Self::Item> {
         if self.start < self.end {
             let ret = self.start;
-            self.start.0 += 0b1_0000;
+            self.start.0 += 0b1000;
             Some(ret)
         } else {
             None
@@ -193,7 +194,7 @@ impl Iterator for NumberRange {
 impl DoubleEndedIterator for NumberRange {
     fn next_back(&mut self) -> Option<Self::Item> {
         if self.start < self.end {
-            self.end.0 -= 0b1_0000;
+            self.end.0 -= 0b1000;
             Some(self.end)
         } else {
             None
