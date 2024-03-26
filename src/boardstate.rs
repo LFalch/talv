@@ -197,7 +197,7 @@ impl BoardState {
             for l in FileRange::full() {
                 let cs = Coords::new(l, n);
 
-                if self.is_possible(cs, king, !side) {
+                if self.is_pseudo_legal(!side, cs, king) {
                     return true;
                 }
             }
@@ -205,123 +205,109 @@ impl BoardState {
         false
     }
     fn find_king(&self, c: Colour) -> Coords {
-        for n in RankRange::full() {
-            for l in FileRange::full() {
-                let cs = Coords::new(l, n);
-
-                match self.board.get(cs) {
-                    Field::Occupied(pc, Piece::King) if pc == c => return cs,
-                    _ => (),
-                }
+        for cs in Coords::full_range() {
+            match self.board.get(cs) {
+                Field::Occupied(pc, Piece::King) if pc == c => return cs,
+                _ => (),
             }
         }
-        unreachable!();
+        unreachable!("no king");
     }
-    pub fn pawn_promototion_pending(&self) -> Option<Coords> {
-        for l in FileRange::full() {
-            let cs = Coords::new(l, Rank::N1);
-            if let Field::Occupied(Colour::Black, Piece::Pawn) = self.board.get(cs) {
-                return Some(cs);
-            }
-            let cs = Coords::new(l, Rank::N8);
-            if let Field::Occupied(Colour::White, Piece::Pawn) = self.board.get(cs) {
-                return Some(cs);
-            }
+    pub fn make_move(&mut self, from: Coords, unto: Coords, promotion: Option<Piece>) -> Result<Success, ()> {
+        if !self.is_pseudo_legal(self.side_to_move, from, unto) {
+            return Err(())
         }
-        None
-    }
-    pub fn promote(&mut self, into: Piece) -> bool {
-        if let Some(pcs) = self.pawn_promototion_pending() {
-            match into {
-                Piece::Pawn | Piece::King => false,
-                p => {
-                    let c = match pcs.r() {
-                        Rank::N1 => Colour::Black,
-                        Rank::N8 => Colour::White,
-                        _ => unreachable!(),
-                    };
-                    self.board.set(pcs, Field::Occupied(c, p));
-                    true
-                }
-            }
-        } else {
-            println!("No pending promotion");
-            false
-        }
-    }
-    pub fn make_move(&mut self, from: Coords, unto: Coords) -> Result<Success, ()> {
-        if self.pawn_promototion_pending().is_some()
-            || !self.is_possible(from, unto, self.side_to_move)
-        {
-            Err(())
-        } else {
-            let mover = self.board.set(from, Field::Empty);
-            let taken = match self.en_passant_target {
-                Some(en_passant_target) if unto == en_passant_target => {
-                    let targeted_pawn_pos = match en_passant_target.r() {
-                        // FIXME: probably do this better
-                        Rank::N3 => en_passant_target.add(0, 1).unwrap(),
-                        Rank::N6 => en_passant_target.add(0, -1).unwrap(),
-                        _ => unreachable!(),
-                    };
-
-                    // this should be empty because otherwise the board was in an illegal state
-                    let _ = self.board.set(unto, mover);
-                    // Kill the pawn
-                    self.board.set(targeted_pawn_pos, Field::Empty)
-                }
-                // if this is not en passant capture, this is straight forward
-                _ => self.board.set(unto, mover),
+        let legal_promotion;
+        if self.board.get(from).into_piece() == Some(Piece::Pawn) {
+            legal_promotion = match promotion {
+                None => unto.r() != Rank::N1 && unto.r() != Rank::N8,
+                Some(Piece::King | Piece::Pawn) => false,
+                Some(_) => unto.r() == Rank::N1 || unto.r() == Rank::N8,
             };
+        } else {
+            legal_promotion = promotion.is_none();
+        }
+        if !legal_promotion {
+            return Err(())
+        }
 
-            self.update_allowed_castles(mover, from);
+        let mover = self.board.set(from, Field::Empty);
+        let taken = match self.en_passant_target {
+            Some(en_passant_target) if unto == en_passant_target => {
+                let targeted_pawn_pos = match en_passant_target.r() {
+                    // FIXME: probably do this better
+                    Rank::N3 => en_passant_target.add(0, 1).unwrap(),
+                    Rank::N6 => en_passant_target.add(0, -1).unwrap(),
+                    _ => unreachable!(),
+                };
 
-            self.side_to_move = !self.side_to_move;
+                // this should be empty because otherwise the board was in an illegal state
+                let _ = self.board.set(unto, mover);
+                // Kill the pawn
+                self.board.set(targeted_pawn_pos, Field::Empty)
+            }
+            // if this is not en passant capture, this is straight forward
+            _ => if let Some(new_piece) = promotion {
+                let mover = match mover {
+                    Field::Occupied(c, _) => Field::Occupied(c, new_piece),
+                    _ => unreachable!(),
+                };
+                self.board.set(unto, mover)
+            } else {
+                self.board.set(unto, mover)
+            },
+        };
 
-            self.update_allowed_castles(taken, unto);
+        self.update_allowed_castles(mover, from);
 
-            let pawn_move = matches!(mover, Field::Occupied(_, Piece::Pawn));
+        self.side_to_move = !self.side_to_move;
 
-            let dist = unto.sub(from);
-            if pawn_move && dist.1.abs() == 2 {
+        self.update_allowed_castles(taken, unto);
+
+        let pawn_move = matches!(mover, Field::Occupied(_, Piece::Pawn));
+
+        let dist = unto.sub(from);
+        if pawn_move {
+            
+            if dist.1.abs() == 2 {
                 // En passant
                 let target_pos = unto.add(0, -dist.1 / 2).unwrap();
                 self.en_passant_target = Some(target_pos);
-            } else {
-                self.en_passant_target = None;
-                // Castling
-                if matches!(mover, Field::Occupied(_, Piece::King)) && dist.0.abs() == 2 {
-                    // FIXME: not pretty
-                    match dist.0.signum() {
-                        1 => {
-                            let rook = self
-                                .board
-                                .set(Coords::new(File::H, unto.r()), Field::Empty);
-                            self.board.set(unto.add(-1, 0).unwrap(), rook);
-                        }
-                        -1 => {
-                            let rook = self
-                                .board
-                                .set(Coords::new(File::A, unto.r()), Field::Empty);
-                            self.board.set(unto.add(1, 0).unwrap(), rook);
-                        }
-                        _ => unreachable!(),
+            }
+        } else {
+            self.en_passant_target = None;
+            // Castling
+            if matches!(mover, Field::Occupied(_, Piece::King)) && dist.0.abs() == 2 {
+                // FIXME: not pretty
+                match dist.0.signum() {
+                    1 => {
+                        let rook = self
+                            .board
+                            .set(Coords::new(File::H, unto.r()), Field::Empty);
+                        self.board.set(unto.add(-1, 0).unwrap(), rook);
                     }
+                    -1 => {
+                        let rook = self
+                            .board
+                            .set(Coords::new(File::A, unto.r()), Field::Empty);
+                        self.board.set(unto.add(1, 0).unwrap(), rook);
+                    }
+                    _ => unreachable!(),
                 }
             }
+        }
 
-            let check = self.in_check(self.side_to_move);
+        let check = self.in_check(self.side_to_move);
 
-            if taken.is_occupied() {
-                Ok(Success::Capture)
-            } else {
-                Ok(match (pawn_move, check) {
-                    (true, true) => Success::PawnMovementAndCheck,
-                    (true, false) => Success::PawnMovement,
-                    (false, true) => Success::Check,
-                    (false, false) => Success::PieceMovement,
-                })
-            }
+        if taken.is_occupied() {
+            Ok(Success::Capture)
+        } else {
+            Ok(match (pawn_move, check) {
+                (true, true) => Success::PawnMovementAndCheck,
+                (true, false) => Success::PawnMovement,
+                (false, true) => Success::Check,
+                (false, false) => Success::PieceMovement,
+            })
         }
     }
     fn update_allowed_castles(&mut self, mover: Field, pos: Coords) {
@@ -345,8 +331,8 @@ impl BoardState {
             _ => (),
         }
     }
-    // Determines if the movement is legal except for whether king is in check after
-    fn is_possible(&self, from: Coords, unto: Coords, colour_to_move: Colour) -> bool {
+    /// Determines if the movement is legal except for whether king is in check after
+    pub fn is_pseudo_legal(&self, colour_to_move: Colour, from: Coords, unto: Coords) -> bool {
         // The two coordinates have to be different
         if from == unto {
             return false;

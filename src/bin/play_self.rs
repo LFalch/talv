@@ -31,8 +31,12 @@ fn main() {
             println!("Illegal check! ");
         }
         print!("Possible moves: ");
-        for (p, from, to) in possible_moves(&game.board_state()) {
-            print!("{p}{from}{to} ");
+        for (p, from, to, prm) in possible_moves(&game.board_state()) {
+            print!("{p}{from}{to}");
+            if let Some(p) = prm {
+                print!("={p}");
+            }
+            print!(" ");
         }
         println!();
         print!("Move: ");
@@ -49,14 +53,8 @@ fn main() {
         if let Some(mv) = mv {
             println!("Valid {}", mv);
 
-            if let Some((f, t)) = game.check_move(mv) {
-                if game.make_move(f, t) {
-                    if let Some(promotion) = mv.promotion() {
-                        if !game.promote(promotion) {
-                            println!("Illegal promotion to {}, ignored", promotion);
-                        }
-                    }
-                } else {
+            if let Some((f, t, prm)) = game.check_move(mv) {
+                if !game.make_move(f, t, prm) {
                     println!("Illegal!!");
                 }
             } else {

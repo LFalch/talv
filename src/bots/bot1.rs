@@ -26,9 +26,9 @@ fn search_inner(state: &BoardState, mut alpha: f32, beta: f32, depth: usize, pre
 
     let mut best_eval = f32::NEG_INFINITY;
 
-    for (_, f, t) in possible_moves {
+    for (_, f, t, prm) in possible_moves {
         let mut new_state = state.clone();
-        new_state.make_move(f, t).unwrap();
+        new_state.make_move(f, t, prm).unwrap();
 
         let eval = -search(&new_state, beta, alpha, depth-1, previous);
 
@@ -44,7 +44,7 @@ fn search_inner(state: &BoardState, mut alpha: f32, beta: f32, depth: usize, pre
     best_eval
 }
 
-pub fn get_moves_ranked(state: &BoardState) -> Vec<(f32, Coords, Coords)> {
+pub fn get_moves_ranked(state: &BoardState) -> Vec<(f32, Coords, Coords, Option<Piece>)> {
     const INITIAL_DEPTH: usize = 4;
     let possible_moves = possible_moves(state);
 
@@ -52,18 +52,18 @@ pub fn get_moves_ranked(state: &BoardState) -> Vec<(f32, Coords, Coords)> {
     {
         let mut previous = HashMap::with_capacity(1024);
 
-        'evaluate_possible_moves: for (_, from, unto) in possible_moves {
+        'evaluate_possible_moves: for (_, from, unto, prm) in possible_moves {
             let mut new_state = state.clone();
-            new_state.make_move(from, unto).unwrap();
+            new_state.make_move(from, unto, prm).unwrap();
             let eval = -search(&new_state, f32::NAN, f32::NAN, INITIAL_DEPTH, &mut previous);
 
-            for (i, &(e, _, _)) in moves_with_eval.iter().enumerate() {
+            for (i, &(e, _, _, _)) in moves_with_eval.iter().enumerate() {
                 if eval > e {
-                    moves_with_eval.insert(i, (eval, from, unto));
+                    moves_with_eval.insert(i, (eval, from, unto, prm));
                     continue 'evaluate_possible_moves;
                 }
             }
-            moves_with_eval.push((eval, from, unto))
+            moves_with_eval.push((eval, from, unto, prm))
         }
     }
 

@@ -1,6 +1,6 @@
 use std::io::{stdin, stdout, Write};
 
-use talv::{algebraic::Move, board::{Colour, Piece}, bots::bot1, game::Game, possible_moves::possible_moves};
+use talv::{algebraic::Move, board::Colour, bots::bot1, game::Game, possible_moves::possible_moves};
 
 fn main() {
     let mut game;
@@ -41,18 +41,25 @@ fn main() {
             Colour::Black => {
                 let moves = bot1::get_moves_ranked(game.board_state());
                 print!("Ranked moves: ");
-                for (e, from, to) in &moves {
-                    print!("{from}{to} ({e:.4}), ");
+                for (e, from, to, p) in &moves {
+                    print!("{from}{to}");
+                    if let Some(p) = p {
+                        print!("={p}");
+                    }
+                    print!(" ({e:.4}) ");
                 }
                 println!();
-                let (_, from, unto) = moves[0];
-                game.make_move(from, unto).then_some(()).unwrap();
-                game.promote(Piece::Queen);
+                let (_, from, unto, pr) = moves[0];
+                game.make_move(from, unto, pr).then_some(()).unwrap();
             }
             Colour::White => {
                 print!("Possible moves: ");
-                for (p, from, to) in possible_moves(&game.board_state()) {
-                    print!("{p}{from}{to} ");
+                for (p, from, to, prm) in possible_moves(&game.board_state()) {
+                    print!("{p}{from}{to}");
+                    if let Some(p) = prm {
+                        print!("={p}");
+                    }
+                    print!(" ");
                 }
                 println!();
                 print!("Move: ");
@@ -65,14 +72,14 @@ fn main() {
                 }
 
                 if let Some(mv) = Move::from_str(input.trim()) {
-                    if let Some((f, t)) = game.check_move(mv) {
-                        if game.make_move(f, t) {
-                            if let Some(promotion) = mv.promotion() {
-                                if !game.promote(promotion) {
-                                    println!("Illegal promotion to {}, ignored", promotion);
-                                }
-                            }
+                    println!("Valid {}", mv);
+
+                    if let Some((f, t, prm)) = game.check_move(mv) {
+                        if !game.make_move(f, t, prm) {
+                            println!("Illegal!!");
                         }
+                    } else {
+                        println!("Incorrect {}", mv);
                     }
                 }
 

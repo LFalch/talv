@@ -55,10 +55,10 @@ impl Game {
         self.last_move_states.get(&self.board_state).copied().unwrap_or(0) == 3
         || self.last_move_states.values().copied().sum::<u8>() == 100
     }
-    fn attempt_move(&self, from: Coords, unto: Coords) -> Option<(Success, BoardState)> {
+    fn attempt_move(&self, from: Coords, unto: Coords, promotion: Option<Piece>) -> Option<(Success, BoardState)> {
         let mut board_state = self.board_state;
 
-        let success = board_state.make_move(from, unto).ok()?;
+        let success = board_state.make_move(from, unto, promotion).ok()?;
 
         if board_state.in_check(self.board_state.side_to_move) {
             None
@@ -66,8 +66,8 @@ impl Game {
             Some((success, board_state))
         }
     }
-    pub fn make_move(&mut self, from: Coords, unto: Coords) -> bool {
-        match self.attempt_move(from, unto) {
+    pub fn make_move(&mut self, from: Coords, unto: Coords, promotion: Option<Piece>) -> bool {
+        match self.attempt_move(from, unto, promotion) {
             Some((success, new_state)) => {
                 self.board_state = new_state;
                 match success {
@@ -106,14 +106,8 @@ impl Game {
     pub fn is_checked(&self, side: Colour) -> bool {
         self.board_state.in_check(side)
     }
-    pub fn pawn_promototion_pending(&self) -> bool {
-        self.board_state.pawn_promototion_pending().is_some()
-    }
-    pub fn promote(&mut self, into: Piece) -> bool {
-        self.board_state.promote(into)
-    }
     // Ignores check and checkmates
-    pub fn check_move(&self, alg_move: Move) -> Option<(Coords, Coords)> {
+    pub fn check_move(&self, alg_move: Move) -> Option<(Coords, Coords, Option<Piece>)> {
         let to_play = self.board_state.side_to_move;
 
         let (ca, brn) = match self.board_state.side_to_move {
@@ -128,10 +122,10 @@ impl Game {
 
         Some(match alg_move.move_type {
             MoveType::ShortCastle if ca.short => {
-                (Coords::new(File::E, brn), Coords::new(File::G, brn))
+                (Coords::new(File::E, brn), Coords::new(File::G, brn), None)
             }
             MoveType::LongCastle if ca.long => {
-                (Coords::new(File::E, brn), Coords::new(File::C, brn))
+                (Coords::new(File::E, brn), Coords::new(File::C, brn), None)
             }
             MoveType::Regular {
                 captures,
@@ -173,7 +167,7 @@ impl Game {
                                     Field::Occupied(c, p2)
                                         if c == to_play
                                             && p2 == p
-                                            && self.attempt_move(coords, unto).is_some() =>
+                                            && self.attempt_move(coords, unto, promotes).is_some() =>
                                     {
                                         if move_from.is_some() {
                                             // Ambiguous
@@ -195,7 +189,7 @@ impl Game {
                                     Field::Occupied(c, p2)
                                         if c == to_play
                                             && p2 == p
-                                            && self.attempt_move(coords, unto).is_some() =>
+                                            && self.attempt_move(coords, unto, promotes).is_some() =>
                                     {
                                         if move_from.is_some() {
                                             // Ambiguous
@@ -218,7 +212,7 @@ impl Game {
                                         Field::Occupied(c, p2)
                                             if c == to_play
                                                 && p2 == p
-                                                && self.attempt_move(coords, unto).is_some() =>
+                                                && self.attempt_move(coords, unto, promotes).is_some() =>
                                         {
                                             if move_from.is_some() {
                                                 // Ambiguous
@@ -235,6 +229,7 @@ impl Game {
                         }
                     },
                     unto,
+                    promotes
                 )
             }
             _ => return None,
