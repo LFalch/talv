@@ -30,7 +30,7 @@ impl File {
             None
         }
     }
-    pub fn from_i8(i: i8) -> Option<Self> {
+    pub const fn from_i8(i: i8) -> Option<Self> {
         Self::new(i as u8)
     }
     pub fn i8(self) -> i8 {
@@ -78,7 +78,7 @@ impl Rank {
             None
         }
     }
-    pub fn from_i8(i: i8) -> Option<Self> {
+    pub const fn from_i8(i: i8) -> Option<Self> {
         Self::new(i as u8)
     }
     pub fn i8(self) -> i8 {

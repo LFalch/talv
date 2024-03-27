@@ -438,6 +438,9 @@ impl BoardState {
     pub const fn display_fen(&self) -> BoardStateFen {
         BoardStateFen { inner: self }
     }
+    pub fn get(&self, coords: Coords) -> Field {
+        self.board.get(coords)
+    }
 }
 
 pub struct BoardStateFen<'a> {
