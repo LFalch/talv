@@ -53,19 +53,15 @@ impl Game {
     }
     pub fn draw_claimable(&self) -> bool {
         self.last_move_states.get(&self.board_state).copied().unwrap_or(0) == 3
-        || self.last_move_states.values().copied().sum::<u8>() == 100 || {
+        || self.last_move_states.values().copied().sum::<u8>() == 100 || 'only_kings: {
             // Check if only kings are left
-            let mut claim = true;
             for cs in Coords::full_range() {
                 match self.board_state.get(cs) {
                     Field::Occupied(_, Piece::King) | Field::Empty => (),
-                    _ => {
-                        claim = false;
-                        break;
-                    }
+                    _ => break 'only_kings false,
                 }
             }
-            claim
+            true
         }
     }
     fn attempt_move(&self, from: Coords, unto: Coords, promotion: Option<Piece>) -> Option<(Success, BoardState)> {
