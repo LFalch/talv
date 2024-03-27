@@ -30,12 +30,24 @@ fn main() {
         .build()
         .unwrap();
 
-    let arg = env::args().nth(1);
+    let mut args = env::args().skip(1);
+    let arg = args.next();
     let arg = arg.as_ref();
 
-    let game_state = GameState::new(&mut ctx, arg.map(|s| s.as_str()), HumanPlayer::default(), Bot1::new()).unwrap();
+    let white_player = args.next().map(|s| parse_player(&s)).unwrap_or_else(|| Box::new(HumanPlayer::default()));
+    let black_player = args.next().map(|s| parse_player(&s)).unwrap_or_else(|| Box::new(HumanPlayer::default()));
+
+    let game_state = GameState::new(&mut ctx, arg.map(|s| s.as_str()), white_player, black_player).unwrap();
 
     ggez::event::run(ctx, event_loop, game_state)
+}
+
+fn parse_player(s: &str) -> Box<dyn Player> {
+    match s {
+        "1" => Box::new(Bot1::new()),
+        "-" => Box::new(HumanPlayer::default()),
+        _ => unimplemented!(),
+    }
 }
 
 struct GameState {
@@ -49,15 +61,15 @@ struct GameState {
 }
 
 impl GameState {
-    fn new<BP: 'static + Player, WP: 'static + Player>(ctx: &mut Context, fen: Option<&str>, white_player: WP, black_player: BP) -> Result<Self, GameError> {
+    fn new(ctx: &mut Context, fen: Option<&str>, white_player: Box<dyn Player>, black_player: Box<dyn Player>) -> Result<Self, GameError> {
         Ok(GameState {
             board_image: Image::from_path(ctx, "/board.png")?,
             pieces_image: Image::from_path(ctx, "/pieces.png")?,
             recent_mesh: Mesh::new_rectangle(ctx, DrawMode::fill(), Rect::new(0., 0., FIELD_SIZE, FIELD_SIZE), Color::from_rgba_u32(0xfce2057f))?,
             chess_game: fen.and_then(|s| Game::from_fen(s)).unwrap_or_else(Game::new),
             recent_move: None,
-            white_player: Box::new(white_player),
-            black_player: Box::new(black_player),
+            white_player,
+            black_player,
         })
     }
 
