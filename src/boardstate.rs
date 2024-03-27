@@ -193,13 +193,12 @@ impl BoardState {
     pub fn in_check(&self, side: Colour) -> bool {
         let king = self.find_king(side);
 
-        for n in RankRange::full() {
-            for l in FileRange::full() {
-                let cs = Coords::new(l, n);
-
-                if self.is_pseudo_legal(!side, cs, king) {
-                    return true;
-                }
+        self.is_threatened(king, !side)
+    }
+    fn is_threatened(&self, spot: Coords, by_side: Colour) -> bool {
+        for cs in Coords::full_range() {
+            if self.is_pseudo_legal(by_side, cs, spot) {
+                return true;
             }
         }
         false
@@ -217,6 +216,7 @@ impl BoardState {
         if !self.is_pseudo_legal(self.side_to_move, from, unto) {
             return Err(())
         }
+        // Check promotion
         let legal_promotion;
         if self.board.get(from).into_piece() == Some(Piece::Pawn) {
             legal_promotion = match promotion {
@@ -229,6 +229,13 @@ impl BoardState {
         }
         if !legal_promotion {
             return Err(())
+        }
+        // Check castling
+        let dist = unto.sub(from);
+        if dist.0.abs() == 2 && self.board.get(from).into_piece() == Some(Piece::King) {
+            if self.in_check(self.side_to_move) || self.is_threatened(from.add(dist.0/2, 0).unwrap(), !self.side_to_move) {
+                return Err(());
+            }
         }
 
         let mover = self.board.set(from, Field::Empty);
@@ -266,7 +273,6 @@ impl BoardState {
 
         let pawn_move = matches!(mover, Field::Occupied(_, Piece::Pawn));
 
-        let dist = unto.sub(from);
         if pawn_move && dist.1.abs() == 2 {
             // Set up en passant
             let target_pos = unto.add(0, -dist.1 / 2).unwrap();
