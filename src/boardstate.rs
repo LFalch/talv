@@ -233,7 +233,7 @@ impl BoardState {
 
         let mover = self.board.set(from, Field::Empty);
         let taken = match self.en_passant_target {
-            Some(en_passant_target) if unto == en_passant_target => {
+            Some(en_passant_target) if unto == en_passant_target && matches!(mover, Field::Occupied(_, Piece::Pawn)) => {
                 let targeted_pawn_pos = match en_passant_target.r() {
                     // FIXME: probably do this better
                     Rank::N3 => en_passant_target.add(0, 1).unwrap(),
