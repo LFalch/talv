@@ -267,13 +267,10 @@ impl BoardState {
         let pawn_move = matches!(mover, Field::Occupied(_, Piece::Pawn));
 
         let dist = unto.sub(from);
-        if pawn_move {
-            
-            if dist.1.abs() == 2 {
-                // En passant
-                let target_pos = unto.add(0, -dist.1 / 2).unwrap();
-                self.en_passant_target = Some(target_pos);
-            }
+        if pawn_move && dist.1.abs() == 2 {
+            // Set up en passant
+            let target_pos = unto.add(0, -dist.1 / 2).unwrap();
+            self.en_passant_target = Some(target_pos);
         } else {
             self.en_passant_target = None;
             // Castling
