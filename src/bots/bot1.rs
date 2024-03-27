@@ -95,13 +95,14 @@ fn eval(state: &BoardState) -> f32 {
 }
 fn eval_pieces(state: &BoardState) -> f32 {
     let mut piece_difference = 0.;
-    let mut abs_piece_sum = 0.;
+    let mut piece_total = 0.;
     for field in Coords::full_range().map(|c| state.board.get(c)) {
         match field {
             Field::Empty => (),
             Field::Occupied(c, p) => {
+                piece_total += 1.;
+
                 let value = piece_value(p);
-                abs_piece_sum += value;
                 if c == state.side_to_move {
                     piece_difference += value;
                 } else {
@@ -110,7 +111,7 @@ fn eval_pieces(state: &BoardState) -> f32 {
             }
         }
     }
-    piece_difference / abs_piece_sum
+    piece_difference / piece_total
 }
 
 const fn piece_value(piece: Piece) -> f32 {

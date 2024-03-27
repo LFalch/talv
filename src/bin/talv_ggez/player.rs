@@ -1,6 +1,6 @@
 use std::thread::JoinHandle;
 
-use talv::{board::Piece, boardstate::BoardState, bots::bot1, location::{Coords, Rank}};
+use talv::{board::{Field, Piece}, boardstate::BoardState, bots::bot1, location::{Coords, Rank}};
 
 pub trait Player {
     fn start_interaction(&mut self, _bs: &BoardState, _coords: Coords) { }
@@ -27,8 +27,11 @@ pub struct HumanPlayer {
 
 impl Player for HumanPlayer {
     fn start_interaction(&mut self, bs: &BoardState, coords: Coords) {
-        if let Some(p) = bs.get(coords).into_piece() {
-            self.interaction_state = Started(p, coords);
+        match bs.get(coords) {
+            Field::Occupied(c, p) if c == bs.side_to_move => {
+                self.interaction_state = Started(p, coords);
+            }
+            _ => (),
         }
     }
     fn get_interaction(&self) -> Option<Piece> {
