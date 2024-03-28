@@ -1,6 +1,6 @@
 use std::io::{stdin, stdout, Write};
 
-use talv::{algebraic::Move, board::Colour, bots::bot1, game::Game, possible_moves::possible_moves};
+use talv::{algebraic::Move, board::Colour, bots::bot1, game::Game, movegen::{any_legal_moves, get_all_moves}};
 
 fn main() {
     let mut game;
@@ -26,7 +26,7 @@ fn main() {
         game.print_game();
         if game.is_checked(game.side_to_move()) {
             println!("Check! ");
-            if possible_moves(game.board_state()).is_empty() {
+            if !any_legal_moves(game.board_state()) {
                 println!("Mate! {:?} won.", !game.side_to_move());
                 break;
             }
@@ -39,22 +39,24 @@ fn main() {
 
         match game.side_to_move() {
             Colour::Black => {
-                let moves = bot1::get_moves_ranked(game.board_state());
+                let (e, moves) = bot1::get_moves_ranked(game.board_state(), 6, usize::MAX);
+                println!("Eval: {e}");
                 print!("Ranked moves: ");
-                for (e, from, to, p) in &moves {
+                for (from, to, p) in &moves {
                     print!("{from}{to}");
                     if let Some(p) = p {
                         print!("={p}");
                     }
-                    print!(" ({e:.4}) ");
+                    print!(" ");
                 }
                 println!();
-                let (_, from, unto, pr) = moves[0];
+                let (from, unto, pr) = moves[0];
                 game.make_move(from, unto, pr).then_some(()).unwrap();
             }
             Colour::White => {
                 print!("Possible moves: ");
-                for (p, from, to, prm) in possible_moves(&game.board_state()) {
+                for (from, to, prm) in get_all_moves(game.board_state()) {
+                    let p = game.board_state().get(from);
                     print!("{p}{from}{to}");
                     if let Some(p) = prm {
                         print!("={p}");

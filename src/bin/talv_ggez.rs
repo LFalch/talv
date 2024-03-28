@@ -4,7 +4,7 @@ use ggez::{
     conf::{WindowMode, WindowSetup}, event::{EventHandler, MouseButton}, graphics::{self, Canvas, Color, DrawMode, DrawParam, Image, Mesh, Rect}, Context, ContextBuilder, GameError
 };
 use player::{Bot1, HumanPlayer, Player};
-use talv::{board::{Colour, Field, Piece}, game::Game, location::{Coords, File, FileRange, Rank, RankRange}, possible_moves::possible_moves};
+use talv::{board::{Colour, Field, Piece}, game::Game, location::{Coords, File, FileRange, Rank, RankRange}, movegen::any_legal_moves};
 
 const FIELD_SIZE: f32 = 60.;
 const TRANSPARENT: Color = Color {
@@ -131,7 +131,7 @@ impl EventHandler for GameState {
     }
 
     fn update(&mut self, ctx: &mut Context) -> Result<(), GameError> {
-        let no_moves = possible_moves(self.chess_game.board_state()).is_empty();
+        let no_moves = !any_legal_moves(self.chess_game.board_state());
         if self.chess_game.is_checked(self.chess_game.side_to_move()) && no_moves {
             println!("Check-mate! {:?} wins.", !self.chess_game.side_to_move());
             ctx.request_quit();

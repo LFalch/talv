@@ -1,6 +1,6 @@
 use std::io::{stdin, stdout, Write};
 
-use talv::{algebraic::Move, game::Game, possible_moves::possible_moves};
+use talv::{algebraic::Move, game::Game, movegen::get_all_moves};
 
 fn main() {
     let mut game;
@@ -31,7 +31,8 @@ fn main() {
             println!("Illegal check! ");
         }
         print!("Possible moves: ");
-        for (p, from, to, prm) in possible_moves(&game.board_state()) {
+        for (from, to, prm) in get_all_moves(game.board_state()) {
+            let p = game.board_state().get(from).into_piece().unwrap();
             print!("{p}{from}{to}");
             if let Some(p) = prm {
                 print!("={p}");

@@ -1,78 +1,109 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, convert::identity};
 
-use crate::{board::{Field, Piece}, boardstate::BoardState, location::Coords, possible_moves::possible_moves};
+use crate::{board::{Colour, Field, Piece}, boardstate::BoardState, location::{Coords, File, Rank}, movegen::{any_legal_moves, gen_legal_moves, get_all_moves}};
 
-pub type Move = (Coords, Coords);
+pub type Move = (Coords, Coords, Option<Piece>);
+const NULL_MOVE: Move = (Coords::new(File::A, Rank::N1), Coords::new(File::A, Rank::N1), None);
 
-fn search(state: &BoardState, alpha: f32, beta: f32, depth: usize, previous: &mut HashMap<BoardState, f32>) -> f32 {
+struct SearchResult {
+    ordered_moves: Vec<Move>,
+    nodes: usize,
+    eval: f32,
+}
+
+fn start_search(state: &BoardState, moves: &[Move], depth: usize, max_nodes: usize) -> SearchResult {
+    assert_ne!(depth, 0);
+    let mut previous = HashMap::with_capacity(1024);
+
+    let mut evals = Vec::with_capacity(moves.len());
+    let mut ordered_moves = Vec::with_capacity(moves.len());
+    for &(f, t, prm) in moves {
+        let mut new_state = state.clone();
+        new_state.make_move(f, t, prm).unwrap();
+
+        let beta = evals.get(0).copied().unwrap_or(f32::NAN);
+        let eval = -search(&new_state, f32::NAN, beta, depth-1, &mut previous, max_nodes);
+
+        let i = evals.binary_search_by(|e| eval.total_cmp(e)).unwrap_or_else(identity);
+        evals.insert(i, eval);
+        ordered_moves.insert(i, (f, t, prm));
+    }
+
+    SearchResult {
+        nodes: previous.len(),
+        ordered_moves,
+        eval: evals.get(0).copied().unwrap_or(0.),
+    }
+}
+fn search(state: &BoardState, alpha: f32, beta: f32, depth: usize, previous: &mut HashMap<BoardState, f32>, max_nodes: usize) -> f32 {
     if let Some(v) = previous.get(state).copied() {
         return v;
     }
 
-    let v = search_inner(state, alpha, beta, depth, previous);
+    let v = search_inner(state, alpha, beta, depth, previous, max_nodes);
     previous.insert(state.clone(), v);
     v
 }
-fn search_inner(state: &BoardState, mut alpha: f32, beta: f32, depth: usize, previous: &mut HashMap<BoardState, f32>) -> f32 {
-    if depth == 0 {
+fn search_inner(state: &BoardState, mut alpha: f32, beta: f32, depth: usize, previous: &mut HashMap<BoardState, f32>, max_nodes: usize) -> f32 {
+    if depth == 0 || previous.len() >= max_nodes {
         return eval(state);
     }
 
-    let possible_moves = possible_moves(state);
+    let mut buf;
+    let possible_moves = {
+        const MAX_MOVES: usize = 200;
+        buf = [NULL_MOVE; MAX_MOVES];
+        let mut slice = &mut buf[..];
+
+        gen_legal_moves(&mut slice, state).expect("max moves exceeded");
+        let unused = slice.len(); 
+        &buf[..MAX_MOVES - unused]
+    };
 
     if possible_moves.is_empty() {
         return eval(state);
     }
 
-    let mut best_eval = f32::NEG_INFINITY;
-
-    for (_, f, t, prm) in possible_moves {
+    for &(f, t, prm) in possible_moves {
         let mut new_state = state.clone();
         new_state.make_move(f, t, prm).unwrap();
 
-        let eval = -search(&new_state, beta, alpha, depth-1, previous);
+        let eval = -search(&new_state, beta, alpha, depth-1, previous, max_nodes);
 
-        if eval > best_eval {
-            best_eval = eval;
-            alpha = if alpha.is_nan() { eval } else { alpha.max(eval) };
+        if alpha.is_nan() || eval > alpha {
+            // This will give `eval` if alpha is nan
+            alpha = alpha.max(eval);
             if beta <= alpha {
                 break;
             }
         }
     }
 
-    best_eval
+    alpha
 }
 
-pub fn get_moves_ranked(state: &BoardState) -> Vec<(f32, Coords, Coords, Option<Piece>)> {
-    const INITIAL_DEPTH: usize = 4;
-    let possible_moves = possible_moves(state);
+pub fn get_moves_ranked(state: &BoardState, max_depth: usize, max_nodes: usize) -> (f32, Vec<Move>) {
+    let possible_moves = get_all_moves(state);
 
-    let mut moves_with_eval = Vec::with_capacity(possible_moves.len());
-    {
-        let mut previous = HashMap::with_capacity(1024);
+    let mut eval = f32::NAN;
+    let mut moves = possible_moves;
 
-        'evaluate_possible_moves: for (_, from, unto, prm) in possible_moves {
-            let mut new_state = state.clone();
-            new_state.make_move(from, unto, prm).unwrap();
-            let eval = -search(&new_state, f32::NAN, f32::NAN, INITIAL_DEPTH, &mut previous);
+    for depth in 1..=max_depth {
+        let res = start_search(state, &moves, depth, max_nodes);
 
-            for (i, &(e, _, _, _)) in moves_with_eval.iter().enumerate() {
-                if eval > e {
-                    moves_with_eval.insert(i, (eval, from, unto, prm));
-                    continue 'evaluate_possible_moves;
-                }
-            }
-            moves_with_eval.push((eval, from, unto, prm))
+        moves = res.ordered_moves;
+        eval = res.eval;
+        if res.nodes > max_nodes {
+            break;
         }
     }
 
-    moves_with_eval
+    (eval, moves)
 }
 
 /// Positive value => good for current last player
 fn eval(state: &BoardState) -> f32 {
-    if possible_moves(state).is_empty() {
+    if !any_legal_moves(state) {
         if state.in_check(state.side_to_move) {
             // I'm in a checkmate!!! oh no!
             return f32::NEG_INFINITY;
@@ -86,7 +117,7 @@ fn eval(state: &BoardState) -> f32 {
         checking_bonus += 10.;
         let mut new_state = state.clone();
         new_state.side_to_move = !new_state.side_to_move;
-        if possible_moves(&new_state).is_empty() {
+        if !any_legal_moves(&new_state) {
             return f32::INFINITY;
         }
     }
@@ -96,13 +127,19 @@ fn eval(state: &BoardState) -> f32 {
 fn eval_pieces(state: &BoardState) -> f32 {
     let mut piece_difference = 0.;
     let mut piece_total = 0.;
-    for field in Coords::full_range().map(|c| state.board.get(c)) {
-        match field {
+    for cs in Coords::full_range() {
+        match state.board.get(cs) {
             Field::Empty => (),
             Field::Occupied(c, p) => {
                 piece_total += 1.;
 
-                let value = piece_value(p);
+                let (f, r) = cs.i8_tuple();
+                let r = match c {
+                    Colour::White => r,
+                    Colour::Black => 7 - r,
+                };
+
+                let value = piece_value(f, r, p);
                 if c == state.side_to_move {
                     piece_difference += value;
                 } else {
@@ -114,11 +151,12 @@ fn eval_pieces(state: &BoardState) -> f32 {
     piece_difference / piece_total
 }
 
-const fn piece_value(piece: Piece) -> f32 {
+fn piece_value(f: i8, r: i8, piece: Piece) -> f32 {
+    let _ = f;
     match piece {
-        Piece::Pawn => 1.,
+        Piece::Pawn => 1. + 0.1 * (r as f32).powf(1.1),
         Piece::Knight => 3.,
-        Piece::Bishop => 3.,
+        Piece::Bishop => 3.2,
         Piece::Rook => 5.,
         Piece::Queen => 9.,
         // cannot use infinity for this as it would make the average useless

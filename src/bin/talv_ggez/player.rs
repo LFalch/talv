@@ -63,7 +63,7 @@ impl Player for HumanPlayer {
 }
 
 pub struct Bot1 {
-    ongoing: Option<JoinHandle<Vec<(f32, Coords, Coords, Option<Piece>)>>>,
+    ongoing: Option<JoinHandle<(f32, Vec<(Coords, Coords, Option<Piece>)>)>>,
 }
 impl Bot1 {
     pub fn new() -> Self {
@@ -77,15 +77,16 @@ impl Player for Bot1 {
         let Some(ongoing) = self.ongoing.take() else {
             let bs = bs.clone();
             self.ongoing = Some(std::thread::spawn(move || {
-                bot1::get_moves_ranked(&bs)
+                bot1::get_moves_ranked(&bs, 10, 1_000_000)
             }));
             return None;
         };
 
         if ongoing.is_finished() {
-            let moves = ongoing.join().unwrap();
+            let (eval, moves) = ongoing.join().unwrap();
 
-            let (_, f, t, p) = moves[0];
+            let (f, t, p) = moves[0];
+            println!("{eval}");
             Some((f, t, p))
         } else {
             self.ongoing = Some(ongoing);
