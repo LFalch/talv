@@ -4,7 +4,9 @@ Chess bot written in Rust. Comes with a simple GUI.
 
 ## Commandline args
 
-The GUI binary (`talv_ggez`) takes three commandline arguments. The first is a FEN string describing the position to start playing from. Remember to quote the string as valid FEN strings contain spaces and the binary only reads the first argument. The second and third describe who plays white and black respectively. If no known bot is put there, a human player is the default instead. The current list of bots are:
+The GUI binary (`talv_ggez`) takes three commandline arguments. The first is a FEN string describing the position to start playing from. Remember to quote the string as valid FEN strings contain spaces and the binary only reads the first argument.
+If no valid FEN string is provided the standard chess starting position is used.
+The second and third describe who plays white and black respectively. If no known bot is put there, a human player is the default instead. The current list of bots are:
 
 - `1` a first attempt at a minimax chess bot using a simple evaluation function.
 
