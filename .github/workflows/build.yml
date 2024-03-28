@@ -21,7 +21,8 @@ jobs:
           - target: x86_64-pc-windows-msvc
             os: windows-latest
     env:
-      archive_name: artifact
+      archive_name: talv
+      executable_name: talv_ggez
     runs-on: ${{ matrix.os }}
     name: "Build ${{ matrix.target }}"
 
@@ -45,11 +46,11 @@ jobs:
 
       - name: Copy Unix Artifact
         if: ${{ matrix.os != 'windows-latest' }}
-        run: cp target/${{ matrix.target }}/release/test ${{ env.archive_name }}
+        run: cp target/${{ matrix.target }}/release/${{ env.executable_name }} ${{ env.archive_name }}
 
       - name: Copy Windows Artifact
         if: ${{ matrix.os == 'windows-latest' }}
-        run: cp target/${{ matrix.target }}/release/test.exe ${{ env.archive_name }}
+        run: cp target/${{ matrix.target }}/release/${{ env.executable_name }}.exe ${{ env.archive_name }}
 
       - name: Create Tar Archive
         if: ${{ matrix.os != 'windows-latest' }}
