@@ -5,15 +5,16 @@ use crate::{board::{Colour, Field, Piece}, boardstate::BoardState, location::{Co
 pub type Move = (Coords, Coords, Option<Piece>);
 const NULL_MOVE: Move = (Coords::new(File::A, Rank::N1), Coords::new(File::A, Rank::N1), None);
 
+type Transpositions = HashMap<BoardState, (usize, f32)>;
+
 struct SearchResult {
     ordered_moves: Vec<Move>,
     nodes: usize,
     eval: f32,
 }
 
-fn start_search(state: &BoardState, moves: &[Move], depth: usize, max_nodes: usize) -> SearchResult {
+fn start_search(state: &BoardState, moves: &[Move], depth: usize, transpositions: &mut Transpositions, max_nodes: usize) -> SearchResult {
     assert_ne!(depth, 0);
-    let mut previous = HashMap::with_capacity(1024);
 
     let mut evals = Vec::with_capacity(moves.len());
     let mut ordered_moves = Vec::with_capacity(moves.len());
@@ -22,7 +23,7 @@ fn start_search(state: &BoardState, moves: &[Move], depth: usize, max_nodes: usi
         new_state.make_move(f, t, prm).unwrap();
 
         let beta = evals.get(0).copied().unwrap_or(f32::NAN);
-        let eval = -search(&new_state, f32::NAN, beta, depth-1, &mut previous, max_nodes);
+        let eval = -search(&new_state, f32::NAN, -beta, depth-1, transpositions, max_nodes);
 
         let i = evals.binary_search_by(|e| eval.total_cmp(e)).unwrap_or_else(identity);
         evals.insert(i, eval);
@@ -30,23 +31,31 @@ fn start_search(state: &BoardState, moves: &[Move], depth: usize, max_nodes: usi
     }
 
     SearchResult {
-        nodes: previous.len(),
+        nodes: transpositions.len(),
         ordered_moves,
         eval: evals.get(0).copied().unwrap_or(0.),
     }
 }
-fn search(state: &BoardState, alpha: f32, beta: f32, depth: usize, previous: &mut HashMap<BoardState, f32>, max_nodes: usize) -> f32 {
-    if let Some(v) = previous.get(state).copied() {
-        return v;
+fn search(state: &BoardState, alpha: f32, beta: f32, depth: usize, transpositions: &mut Transpositions, max_nodes: usize) -> f32 {
+    if let Some((d, v)) = transpositions.get(state).copied() {
+        if d >= depth {
+            return v;
+        }
     }
 
-    let v = search_inner(state, alpha, beta, depth, previous, max_nodes);
-    previous.insert(state.clone(), v);
+    let v = search_inner(state, alpha, beta, depth, transpositions, max_nodes);
+    transpositions.insert(state.clone(), (depth, v));
     v
 }
-fn search_inner(state: &BoardState, mut alpha: f32, beta: f32, depth: usize, previous: &mut HashMap<BoardState, f32>, max_nodes: usize) -> f32 {
-    if depth == 0 || previous.len() >= max_nodes {
-        return eval(state);
+fn search_inner(state: &BoardState, mut alpha: f32, beta: f32, depth: usize, transpositions: &mut Transpositions, max_nodes: usize) -> f32 {
+    if depth == 0 || transpositions.len() >= max_nodes {
+        let evaluation;
+        if let Some((_, v)) = transpositions.get(state).copied() {
+            evaluation = v
+        } else {
+            evaluation = eval(state);
+        }
+        return evaluation;
     }
 
     let mut buf;
@@ -68,7 +77,7 @@ fn search_inner(state: &BoardState, mut alpha: f32, beta: f32, depth: usize, pre
         let mut new_state = state.clone();
         new_state.make_move(f, t, prm).unwrap();
 
-        let eval = -search(&new_state, beta, alpha, depth-1, previous, max_nodes);
+        let eval = -search(&new_state, -beta, -alpha, depth-1, transpositions, max_nodes);
 
         if alpha.is_nan() || eval > alpha {
             // This will give `eval` if alpha is nan
@@ -88,8 +97,10 @@ pub fn get_moves_ranked(state: &BoardState, max_depth: usize, max_nodes: usize) 
     let mut eval = f32::NAN;
     let mut moves = possible_moves;
 
+    let mut transpositions = Transpositions::with_capacity(1024);
+
     for depth in 1..=max_depth {
-        let res = start_search(state, &moves, depth, max_nodes);
+        let res = start_search(state, &moves, depth, &mut transpositions, max_nodes);
 
         moves = res.ordered_moves;
         eval = res.eval;
